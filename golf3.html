@@ -1,192 +1,1510 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Super Golf Challenge: Spirit Drive DX</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPIRIT DRIVE GOLF</title>
 <style>
-body{margin:0;background:#06110a;color:#fff;font-family:monospace;text-align:center}
-canvas{display:block;margin:10px auto;border:6px solid #111;image-rendering:pixelated}
-#dialog{height:60px}
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background:#000;
+    overflow:hidden;
+    font-family:'Press Start 2P', monospace;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  canvas {
+    display:block;
+    margin:0 auto;
+    image-rendering: pixelated;
+  }
+
+  #ui {
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    pointer-events:none;
+    display:none;
+  }
+
+  /* ─── DIALOGUE BOX ─── */
+  #dialogue-overlay {
+    position:fixed;
+    top:0; left:0; width:100%; height:100%;
+    display:none;
+    z-index:100;
+    pointer-events:all;
+  }
+  #dialogue-box {
+    position:absolute;
+    bottom:0; left:0; right:0;
+    height:220px;
+    background:#000080;
+    border-top:4px solid #fff;
+    border-bottom:4px solid #fff;
+    padding:16px 220px 16px 220px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  #dialogue-name {
+    font-family:'Press Start 2P', monospace;
+    font-size:12px;
+    color:#FFD700;
+    text-shadow:2px 2px #000;
+  }
+  #dialogue-text {
+    font-family:'Press Start 2P', monospace;
+    font-size:10px;
+    color:#fff;
+    line-height:1.8;
+    text-shadow:1px 1px #000;
+    min-height:80px;
+  }
+  #dialogue-continue {
+    font-family:'Press Start 2P', monospace;
+    font-size:8px;
+    color:#FFD700;
+    text-align:right;
+    animation: blink 0.8s step-end infinite;
+  }
+  #portrait-left {
+    position:absolute;
+    left:10px;
+    bottom:16px;
+    width:190px;
+    height:188px;
+    border:3px solid #fff;
+    background:#000;
+    overflow:hidden;
+  }
+  #portrait-right {
+    position:absolute;
+    right:10px;
+    bottom:16px;
+    width:190px;
+    height:188px;
+    border:3px solid #fff;
+    background:#000;
+    overflow:hidden;
+    transform: scaleX(-1);
+  }
+
+  /* ─── CUT-IN ─── */
+  #cutin {
+    position:fixed;
+    top:0;left:0;width:100%;height:100%;
+    z-index:200;
+    display:none;
+    pointer-events:none;
+  }
+  #cutin-slash {
+    position:absolute;
+    top:0;left:-100%;
+    width:60%;height:100%;
+    background:#FFD700;
+    transform:skewX(-10deg);
+    animation:slashIn 0.15s ease-out forwards;
+  }
+  #cutin-portrait {
+    position:absolute;
+    left:20px;
+    top:50%;
+    transform:translateY(-50%);
+    width:260px;
+    height:280px;
+    z-index:201;
+  }
+  #cutin-text {
+    position:absolute;
+    right:40px;
+    top:50%;
+    transform:translateY(-50%);
+    font-family:'Press Start 2P', monospace;
+    font-size:28px;
+    color:#fff;
+    text-shadow:4px 4px #000, -2px -2px #FF0000;
+    z-index:201;
+    text-align:right;
+    line-height:1.4;
+  }
+  @keyframes slashIn { from{left:-100%} to{left:-5%} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes shake {
+    0%,100%{transform:translate(0,0)}
+    20%{transform:translate(-4px,4px)}
+    40%{transform:translate(4px,-4px)}
+    60%{transform:translate(-4px,0)}
+    80%{transform:translate(4px,4px)}
+  }
+  @keyframes flash {
+    0%{opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{opacity:0}
+  }
+
+  /* ─── GAME HUD ─── */
+  #hud {
+    position:fixed;
+    top:0;left:0;right:0;
+    display:none;
+    z-index:50;
+    pointer-events:none;
+  }
+  #hud-top {
+    background:rgba(0,0,80,0.92);
+    border-bottom:3px solid #FFD700;
+    padding:8px 16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  #hud-bottom {
+    position:fixed;
+    bottom:0;left:0;right:0;
+    background:rgba(0,0,80,0.92);
+    border-top:3px solid #FFD700;
+    padding:8px 16px;
+    display:flex;
+    gap:20px;
+    align-items:center;
+  }
+  .hud-label {
+    font-size:7px;
+    color:#aaf;
+    display:block;
+    margin-bottom:3px;
+  }
+  .hud-val {
+    font-size:10px;
+    color:#FFD700;
+  }
+  #power-bar-wrap, #accuracy-bar-wrap {
+    flex:1;
+    max-width:200px;
+  }
+  .meter-bg {
+    width:100%;
+    height:16px;
+    background:#001;
+    border:2px solid #fff;
+    position:relative;
+  }
+  #power-fill {
+    height:100%;
+    width:0%;
+    background: linear-gradient(90deg,#00FF00,#FFFF00,#FF4400);
+    transition:none;
+  }
+  #accuracy-fill {
+    height:100%;
+    width:4px;
+    background:#fff;
+    position:absolute;
+    left:50%;
+    top:0;
+  }
+  #accuracy-zone {
+    position:absolute;
+    top:0;
+    height:100%;
+    background:rgba(0,255,0,0.4);
+    width:20%;
+    left:40%;
+  }
+  #spirit-bar-wrap { flex:1; max-width:160px; }
+  #spirit-fill {
+    height:100%;
+    background:linear-gradient(90deg,#8800FF,#FF00FF);
+  }
+  #wind-indicator {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  #flash-overlay {
+    position:fixed;
+    top:0;left:0;width:100%;height:100%;
+    background:#fff;
+    opacity:0;
+    pointer-events:none;
+    z-index:999;
+  }
+
+  /* ─── LOADING ─── */
+  #loading-screen {
+    position:fixed;
+    top:0;left:0;width:100%;height:100%;
+    background:#000;
+    z-index:1000;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:20px;
+  }
+  #loading-title {
+    font-family:'Press Start 2P',monospace;
+    font-size:36px;
+    color:#FFD700;
+    text-shadow:4px 4px #FF4400, 8px 8px #000;
+    animation:titlePulse 1s ease-in-out infinite alternate;
+  }
+  @keyframes titlePulse {
+    from{text-shadow:4px 4px #FF4400, 8px 8px #000;}
+    to{text-shadow:4px 4px #FF0088, 8px 8px #001}
+  }
+  #loading-sub {
+    font-size:11px;
+    color:#fff;
+    letter-spacing:3px;
+  }
+  #loading-bar-wrap {
+    width:400px;
+    height:24px;
+    border:3px solid #fff;
+    background:#001;
+  }
+  #loading-bar {
+    height:100%;
+    background:linear-gradient(90deg,#0088FF,#00FFFF);
+    width:0%;
+    transition:width 0.1s linear;
+  }
+  #loading-status {
+    font-size:8px;
+    color:#88f;
+    min-height:16px;
+  }
+  #press-start {
+    font-size:12px;
+    color:#fff;
+    animation:blink 1s step-end infinite;
+    display:none;
+    margin-top:20px;
+  }
+
+  /* ─── TITLE SCREEN ─── */
+  #title-screen {
+    position:fixed;
+    top:0;left:0;width:100%;height:100%;
+    z-index:90;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:30px;
+  }
+  .title-logo {
+    font-family:'Press Start 2P',monospace;
+    font-size:48px;
+    color:#FFD700;
+    text-shadow:5px 5px #FF0000, 10px 10px #000;
+    letter-spacing:2px;
+    text-align:center;
+  }
+  .title-logo-sub {
+    font-size:18px;
+    color:#fff;
+    text-shadow:3px 3px #0000FF;
+    letter-spacing:6px;
+    text-align:center;
+  }
+
+  #shot-result {
+    position:fixed;
+    top:40%;left:50%;
+    transform:translate(-50%,-50%);
+    font-family:'Press Start 2P',monospace;
+    font-size:32px;
+    color:#FFD700;
+    text-shadow:4px 4px #FF0000, -2px -2px #000;
+    display:none;
+    z-index:300;
+    animation:resultPop 0.3s ease-out forwards;
+    pointer-events:none;
+    text-align:center;
+  }
+  @keyframes resultPop {
+    from{transform:translate(-50%,-50%) scale(0.3); opacity:0}
+    to{transform:translate(-50%,-50%) scale(1); opacity:1}
+  }
+
+  #game-over-screen {
+    position:fixed;
+    top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.85);
+    z-index:500;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:24px;
+  }
 </style>
 </head>
 <body>
-<h1>SPIRIT DRIVE DX</h1>
-<canvas id="c" width="640" height="360"></canvas>
-<div id="dialog"></div>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div style="font-size:11px;color:#FFD700;letter-spacing:4px;margin-bottom:10px;">SHINKAI SPORTS PRESENTS</div>
+  <div id="loading-title">SPIRIT DRIVE<br>GOLF</div>
+  <div id="loading-sub">THE LEGEND OF HIKARU</div>
+  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+  <div id="loading-status">LOADING MEMORIES...</div>
+  <div id="press-start">▶ PRESS ANY KEY TO CONTINUE</div>
+</div>
+
+<!-- TITLE SCREEN -->
+<div id="title-screen">
+  <div class="title-logo">SPIRIT DRIVE</div>
+  <div class="title-logo-sub">GOLF</div>
+  <div style="font-size:9px;color:#aaf;margin-top:-10px;">THE LEGEND OF HIKARU</div>
+  <div style="height:40px;"></div>
+  <div style="font-size:10px;color:#fff;animation:blink 1s step-end infinite;">▶ PRESS ANY KEY</div>
+  <div style="font-size:7px;color:#444;margin-top:60px;">© 1994 SHINKAI SPORTS  ALL RIGHTS RESERVED</div>
+</div>
+
+<!-- MAIN CANVAS -->
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<!-- FLASH -->
+<div id="flash-overlay"></div>
+
+<!-- DIALOGUE OVERLAY -->
+<div id="dialogue-overlay">
+  <canvas id="bg-canvas" width="800" height="380" style="display:block;margin:0 auto;background:#000;"></canvas>
+  <div id="dialogue-box">
+    <canvas id="portrait-left" width="190" height="188"></canvas>
+    <canvas id="portrait-right" width="190" height="188"></canvas>
+    <div id="dialogue-name">???</div>
+    <div id="dialogue-text"></div>
+    <div id="dialogue-continue">▼ PRESS SPACE / CLICK</div>
+  </div>
+</div>
+
+<!-- CUT-IN -->
+<div id="cutin">
+  <div id="cutin-slash"></div>
+  <canvas id="cutin-portrait" width="260" height="280"></canvas>
+  <div id="cutin-text"></div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-top">
+    <div>
+      <span class="hud-label">HOLE</span>
+      <span class="hud-val" id="hud-hole">1 - DRIVING RANGE</span>
+    </div>
+    <div>
+      <span class="hud-label">PLAYER</span>
+      <span class="hud-val" id="hud-player">HIKARU</span>
+    </div>
+    <div>
+      <span class="hud-label">SHOT</span>
+      <span class="hud-val" id="hud-shot">1</span>
+    </div>
+    <div>
+      <span class="hud-label">DISTANCE</span>
+      <span class="hud-val" id="hud-dist">250 YDS</span>
+    </div>
+    <div id="wind-indicator">
+      <span class="hud-label">WIND</span>
+      <span class="hud-val" id="hud-wind">→ 8 MPH</span>
+    </div>
+  </div>
+  <div id="hud-bottom">
+    <div id="power-bar-wrap">
+      <span class="hud-label">POWER</span>
+      <div class="meter-bg"><div id="power-fill"></div></div>
+    </div>
+    <div id="accuracy-bar-wrap">
+      <span class="hud-label">ACCURACY</span>
+      <div class="meter-bg" style="position:relative;">
+        <div id="accuracy-zone"></div>
+        <div id="accuracy-fill"></div>
+      </div>
+    </div>
+    <div id="spirit-bar-wrap">
+      <span class="hud-label">SPIRIT <span id="spirit-count" style="color:#FF00FF;">★★★</span></span>
+      <div class="meter-bg"><div id="spirit-fill" style="width:80%;height:100%;"></div></div>
+    </div>
+    <div>
+      <span class="hud-label">CLUB</span>
+      <span class="hud-val" id="hud-club">DRIVER</span>
+    </div>
+    <div>
+      <span class="hud-label">LAST SHOT</span>
+      <span class="hud-val" id="hud-lastdist">--- YDS</span>
+    </div>
+  </div>
+</div>
+
+<!-- SHOT RESULT -->
+<div id="shot-result"></div>
+
+<!-- GAME OVER -->
+<div id="game-over-screen">
+  <div style="font-family:'Press Start 2P';font-size:36px;color:#FFD700;text-shadow:4px 4px #FF0000;">GREAT SHOT!</div>
+  <div id="final-distance" style="font-family:'Press Start 2P';font-size:18px;color:#fff;"></div>
+  <div id="rival-comment" style="font-family:'Press Start 2P';font-size:10px;color:#ff88ff;max-width:500px;text-align:center;line-height:2;"></div>
+  <div style="font-family:'Press Start 2P';font-size:9px;color:#aaa;animation:blink 1s step-end infinite;margin-top:20px;">▶ PRESS ANY KEY TO SWING AGAIN</div>
+</div>
+
 <script>
-const c=document.getElementById('c');
-const x=c.getContext('2d');
-const dialog=document.getElementById('dialog');
+// ═══════════════════════════════════════════════════════
+//  SPIRIT DRIVE GOLF  ·  Main Game Script
+// ═══════════════════════════════════════════════════════
 
-let state='loading';
-let t=0;
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
 
-// ---------- CHARACTERS ----------
-const chars={
- player:{name:'HIKARU',color:'#ff0'},
- rival:{name:'RAZOR',color:'#f00'},
- old:{name:'OLD PRO',color:'#ccc'}
+// ─── AUDIO ENGINE ───────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function getAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playTone(freq, type, duration, vol=0.3, delay=0) {
+  const ac = getAudio();
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, ac.currentTime + delay);
+  gain.gain.linearRampToValueAtTime(vol, ac.currentTime + delay + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + delay + duration);
+  osc.start(ac.currentTime + delay);
+  osc.stop(ac.currentTime + delay + duration + 0.05);
+}
+
+function playSwing() {
+  playTone(880,'sawtooth',0.05,0.2);
+  playTone(440,'square',0.08,0.15,0.05);
+  playTone(220,'square',0.1,0.1,0.1);
+}
+function playImpact(power) {
+  const freq = 200 + power * 4;
+  playTone(freq,'square',0.12,0.4);
+  playTone(freq*1.5,'sawtooth',0.08,0.2,0.02);
+  playTone(80,'square',0.15,0.3,0.04);
+}
+function playLand() {
+  playTone(300,'square',0.06,0.2);
+  playTone(150,'sawtooth',0.1,0.15,0.05);
+}
+function playCutin() {
+  playTone(1000,'square',0.04,0.5);
+  playTone(800,'square',0.04,0.4,0.05);
+  playTone(1200,'square',0.06,0.6,0.1);
+  playTone(1600,'square',0.04,0.5,0.2);
+}
+
+let bgMusicPlaying = false;
+let bgInterval;
+function startBGMusic() {
+  if (bgMusicPlaying) return;
+  bgMusicPlaying = true;
+  const ac = getAudio();
+  // Simple chiptune loop
+  const notes = [
+    [523,0],[659,0.25],[784,0.5],[1047,0.75],
+    [880,1.0],[784,1.25],[659,1.5],[523,1.75],
+    [392,2.0],[523,2.25],[659,2.5],[784,2.75],
+    [1047,3.0],[880,3.25],[784,3.5],[659,3.75]
+  ];
+  function playLoop(startTime) {
+    notes.forEach(([f,t]) => {
+      playTone(f,'square',0.2,0.08,startTime+t);
+      playTone(f/2,'square',0.15,0.06,startTime+t);
+    });
+    // bass line
+    [130,146,164,174,196,220,196,174].forEach((f,i)=>{
+      playTone(f,'sawtooth',0.45,0.06,startTime+i*0.5);
+    });
+  }
+  let t = ac.currentTime + 0.1;
+  playLoop(t);
+  bgInterval = setInterval(()=>{
+    t += 4.0;
+    playLoop(t);
+  }, 4000);
+}
+
+// ─── STATE ──────────────────────────────────────────────
+const STATE = {
+  LOADING:0, TITLE:1, DIALOGUE:2, PLAYING:3, CUTIN:4, SHOT_FLIGHT:5, SHOT_RESULT:6
 };
+let currentState = STATE.LOADING;
 
-// ---------- STORY ----------
-const story=[
- {text:"DESTINY IS ON THE FAIRWAY...",speaker:'old'},
- {text:"YOU MUST PLAY...",speaker:'old'},
- {text:"I WILL CRUSH YOU...",speaker:'rival'},
- {text:"MY DRIVE WILL REACH THE HORIZON!",speaker:'player'}
+// ─── CHARACTERS ─────────────────────────────────────────
+function drawHikaru(ctx, w, h, expression='neutral', highlight=false) {
+  ctx.clearRect(0,0,w,h);
+  const bg = highlight ? '#001133' : '#000520';
+  ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
+
+  // Dramatic bg lines
+  ctx.strokeStyle = highlight ? '#0044FF' : '#003388';
+  ctx.lineWidth=1;
+  for(let i=0;i<8;i++){
+    ctx.beginPath();ctx.moveTo(0,h*i/7);ctx.lineTo(w,h*i/7);ctx.stroke();
+  }
+
+  const cx = w/2, cy = h*0.45;
+  // Hair - spiky anime style
+  ctx.fillStyle = '#1a1a2e';
+  // Head
+  ctx.beginPath();ctx.arc(cx,cy,46,0,Math.PI*2);ctx.fill();
+  // Face
+  ctx.fillStyle = '#FFDAB9';
+  ctx.beginPath();ctx.arc(cx,cy,40,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy+12,44,0,Math.PI);ctx.fill();
+  // Spiky hair
+  ctx.fillStyle='#1a0a00';
+  for(let i=0;i<7;i++){
+    const angle = -Math.PI*0.9 + i*Math.PI*0.25;
+    const r1=40, r2=62+i%3*8;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(angle-0.15)*r1, cy+Math.sin(angle-0.15)*r1);
+    ctx.lineTo(cx+Math.cos(angle)*r2, cy+Math.sin(angle)*r2);
+    ctx.lineTo(cx+Math.cos(angle+0.15)*r1, cy+Math.sin(angle+0.15)*r1);
+    ctx.fill();
+  }
+  // Eyes
+  const eyeY = cy - 4;
+  if(expression==='determined'||expression==='angry') {
+    // furrowed brows
+    ctx.strokeStyle='#333';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(cx-20,eyeY-14);ctx.lineTo(cx-8,eyeY-10);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx+20,eyeY-14);ctx.lineTo(cx+8,eyeY-10);ctx.stroke();
+  }
+  // Eyes whites
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.ellipse(cx-14,eyeY,9,7,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx+14,eyeY,9,7,0,0,Math.PI*2);ctx.fill();
+  // Pupils - bigger for dramatic
+  ctx.fillStyle='#001166';
+  ctx.beginPath();ctx.arc(cx-13,eyeY,6,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx+13,eyeY,6,0,Math.PI*2);ctx.fill();
+  // Shine
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(cx-11,eyeY-2,2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx+15,eyeY-2,2,0,Math.PI*2);ctx.fill();
+  // Nose
+  ctx.strokeStyle='#cc9977';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx-2,eyeY+8);ctx.lineTo(cx+2,eyeY+12);ctx.stroke();
+  // Mouth
+  ctx.strokeStyle='#aa6644';ctx.lineWidth=2;
+  if(expression==='smile'){
+    ctx.beginPath();ctx.arc(cx,eyeY+18,8,0.1,Math.PI-0.1);ctx.stroke();
+  } else if(expression==='determined'||expression==='angry'){
+    ctx.beginPath();ctx.moveTo(cx-8,eyeY+20);ctx.lineTo(cx+8,eyeY+20);ctx.stroke();
+  } else {
+    ctx.beginPath();ctx.moveTo(cx-6,eyeY+20);ctx.lineTo(cx+6,eyeY+18);ctx.stroke();
+  }
+  // Blush for smile
+  if(expression==='smile'){
+    ctx.fillStyle='rgba(255,100,100,0.3)';
+    ctx.beginPath();ctx.ellipse(cx-22,eyeY+6,9,5,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(cx+22,eyeY+6,9,5,0,0,Math.PI*2);ctx.fill();
+  }
+  // Headband
+  ctx.fillStyle='#FF4400';
+  ctx.fillRect(cx-44, cy-26, 88, 10);
+  ctx.fillStyle='#FFD700';
+  ctx.font='bold 7px monospace';
+  ctx.fillText('魂',cx-8,cy-19);
+
+  // Collar / shirt
+  ctx.fillStyle='#0044CC';
+  ctx.beginPath();ctx.moveTo(cx-50,h);ctx.lineTo(cx-20,cy+44);ctx.lineTo(cx+20,cy+44);ctx.lineTo(cx+50,h);ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.moveTo(cx-5,cy+44);ctx.lineTo(cx,cy+50);ctx.lineTo(cx+5,cy+44);ctx.fill();
+
+  if(highlight){
+    ctx.strokeStyle='rgba(100,150,255,0.4)';ctx.lineWidth=2;
+    ctx.strokeRect(1,1,w-2,h-2);
+  }
+}
+
+function drawRival(ctx, w, h, expression='smug', highlight=false) {
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#0a0005';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#330033';ctx.lineWidth=1;
+  for(let i=0;i<8;i++){ctx.beginPath();ctx.moveTo(0,h*i/7);ctx.lineTo(w,h*i/7);ctx.stroke();}
+
+  const cx=w/2, cy=h*0.45;
+  // Slicked back dark hair
+  ctx.fillStyle='#0d0d0d';
+  ctx.beginPath();ctx.arc(cx,cy,46,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#FFDAB9';
+  ctx.beginPath();ctx.arc(cx,cy,40,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy+12,44,0,Math.PI);ctx.fill();
+  // Slicked back hair
+  ctx.fillStyle='#0d0d0d';
+  ctx.beginPath();ctx.ellipse(cx,cy-36,38,18,0,0,Math.PI*2);ctx.fill();
+  // Side sweep
+  ctx.beginPath();ctx.moveTo(cx-42,cy-10);ctx.lineTo(cx-30,cy-42);ctx.lineTo(cx+5,cy-44);ctx.lineTo(cx+5,cy-30);ctx.fill();
+  // Eyes - narrow/smug
+  const eyeY = cy-4;
+  ctx.strokeStyle='#111';ctx.lineWidth=2;
+  if(expression==='smug'||expression==='taunt') {
+    // raised eyebrow smug
+    ctx.beginPath();ctx.moveTo(cx-22,eyeY-16);ctx.lineTo(cx-6,eyeY-12);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx+6,eyeY-18);ctx.lineTo(cx+22,eyeY-10);ctx.stroke();
+  }
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.ellipse(cx-14,eyeY,9,5,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx+14,eyeY,9,5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#330000';
+  ctx.beginPath();ctx.arc(cx-13,eyeY,5,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx+13,eyeY,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(cx-11,eyeY-1,1.5,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx+15,eyeY-1,1.5,0,Math.PI*2);ctx.fill();
+  // Nose sharp
+  ctx.strokeStyle='#cc9977';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx,eyeY+6);ctx.lineTo(cx+4,eyeY+12);ctx.stroke();
+  // Smug smirk
+  ctx.strokeStyle='#aa6644';ctx.lineWidth=2;
+  if(expression==='smug') {
+    ctx.beginPath();ctx.moveTo(cx-4,eyeY+22);ctx.quadraticCurveTo(cx+6,eyeY+16,cx+12,eyeY+19);ctx.stroke();
+  } else {
+    ctx.beginPath();ctx.moveTo(cx-8,eyeY+22);ctx.quadraticCurveTo(cx+2,eyeY+18,cx+10,eyeY+22);ctx.stroke();
+  }
+  // White scarf / collar
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.moveTo(cx-50,h);ctx.lineTo(cx-18,cy+44);ctx.lineTo(cx+18,cy+44);ctx.lineTo(cx+50,h);ctx.fill();
+  ctx.fillStyle='#330033';
+  ctx.beginPath();ctx.moveTo(cx-50,h);ctx.lineTo(cx-18,cy+44);ctx.lineTo(cx+18,cy+44);ctx.lineTo(cx+50,h);
+  ctx.fillStyle='#1a0033';ctx.fill();
+  ctx.fillStyle='#9900cc';
+  ctx.fillRect(cx-44,cy-26,88,6);
+
+  if(highlight){
+    ctx.strokeStyle='rgba(200,100,255,0.4)';ctx.lineWidth=2;
+    ctx.strokeRect(1,1,w-2,h-2);
+  }
+}
+
+function drawMentor(ctx, w, h, expression='wise', highlight=false) {
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#0a0800';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#332200';ctx.lineWidth=1;
+  for(let i=0;i<8;i++){ctx.beginPath();ctx.moveTo(0,h*i/7);ctx.lineTo(w,h*i/7);ctx.stroke();}
+
+  const cx=w/2, cy=h*0.45;
+  ctx.fillStyle='#555';
+  ctx.beginPath();ctx.arc(cx,cy,46,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#DEB887';
+  ctx.beginPath();ctx.arc(cx,cy,40,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy+12,44,0,Math.PI);ctx.fill();
+  // White hair
+  ctx.fillStyle='#ddd';
+  ctx.beginPath();ctx.arc(cx,cy-28,36,Math.PI,Math.PI*2);ctx.fill();
+  // Thinning on top
+  ctx.fillStyle='#DEB887';
+  ctx.beginPath();ctx.ellipse(cx,cy-36,18,14,0,0,Math.PI*2);ctx.fill();
+  // Wrinkles
+  ctx.strokeStyle='#c9956a';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx-18,cy-8);ctx.lineTo(cx-10,cy-4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+10,cy-4);ctx.lineTo(cx+18,cy-8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-8,cy+16);ctx.bezierCurveTo(cx-4,cy+20,cx+4,cy+20,cx+8,cy+16);ctx.stroke();
+  // Bushy eyebrows
+  ctx.fillStyle='#888';
+  ctx.beginPath();ctx.ellipse(cx-14,cy-17,11,4,0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx+14,cy-17,11,4,-0.2,0,Math.PI*2);ctx.fill();
+  const eyeY=cy-4;
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.ellipse(cx-14,eyeY,8,5,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx+14,eyeY,8,5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#553300';
+  ctx.beginPath();ctx.arc(cx-13,eyeY,4,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(cx+13,eyeY,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(cx-11,eyeY-1,1.5,0,Math.PI*2);ctx.fill();
+  // Mustache
+  ctx.fillStyle='#aaa';
+  ctx.beginPath();ctx.ellipse(cx-6,eyeY+16,8,5,-0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx+6,eyeY+16,8,5,0.2,0,Math.PI*2);ctx.fill();
+  // Kindly smile
+  ctx.strokeStyle='#aa6644';ctx.lineWidth=2;
+  if(expression==='sad'){
+    ctx.beginPath();ctx.arc(cx,eyeY+28,8,Math.PI+0.2,Math.PI*2-0.2);ctx.stroke();
+  } else {
+    ctx.beginPath();ctx.arc(cx,eyeY+18,8,0.1,Math.PI-0.1);ctx.stroke();
+  }
+  // Traditional gi
+  ctx.fillStyle='#4a3800';
+  ctx.beginPath();ctx.moveTo(cx-50,h);ctx.lineTo(cx-20,cy+44);ctx.lineTo(cx+20,cy+44);ctx.lineTo(cx+50,h);ctx.fill();
+  ctx.fillStyle='#c8a000';
+  ctx.fillRect(cx-44,cy+30,88,6);
+}
+
+// ─── PORTRAIT CANVASES ──────────────────────────────────
+const pLeft = document.getElementById('portrait-left');
+const pRight = document.getElementById('portrait-right');
+const pLeftCtx = pLeft.getContext('2d');
+pLeftCtx.imageSmoothingEnabled = false;
+const pRightCtx = pRight.getContext('2d');
+pRightCtx.imageSmoothingEnabled = false;
+
+function setPortraits(left, right) {
+  pLeftCtx.clearRect(0,0,190,188);
+  pRightCtx.clearRect(0,0,190,188);
+  if(left) left(pLeftCtx, 190, 188, undefined, true);
+  if(right) right(pRightCtx, 190, 188, undefined, false);
+}
+
+// ─── BACKGROUND CANVAS ──────────────────────────────────
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+bgCtx.imageSmoothingEnabled = false;
+
+function drawDialogueBg(scene) {
+  bgCtx.clearRect(0,0,800,380);
+  if(scene==='range') {
+    // Driving range backdrop
+    // Sky
+    const sky = bgCtx.createLinearGradient(0,0,0,380);
+    sky.addColorStop(0,'#1a3a6e');
+    sky.addColorStop(1,'#4a7aae');
+    bgCtx.fillStyle=sky;
+    bgCtx.fillRect(0,0,800,260);
+    // Clouds pixelated
+    bgCtx.fillStyle='rgba(200,220,255,0.6)';
+    [[100,60,60,20],[200,80,40,14],[500,50,70,22],[650,70,50,18]].forEach(([x,y,w,h])=>{
+      bgCtx.fillRect(x,y,w,h);bgCtx.fillRect(x+8,y-8,w-16,h);bgCtx.fillRect(x+4,y-4,w-8,h+8);
+    });
+    // Sun
+    bgCtx.fillStyle='#FFE066';
+    bgCtx.beginPath();bgCtx.arc(680,60,30,0,Math.PI*2);bgCtx.fill();
+    // Ground - mode 7 style stripes
+    for(let row=0;row<120;row++){
+      const t = row/120;
+      const greenAmt = Math.floor(80 + t*80);
+      const stripe = Math.floor((row+4)/8)%2;
+      bgCtx.fillStyle = stripe ? `rgb(0,${greenAmt},0)` : `rgb(0,${Math.max(0,greenAmt-20)},0)`;
+      const perspW = 40 + t*720;
+      const x = 400 - perspW/2;
+      bgCtx.fillRect(x, 260+row, perspW, 1);
+    }
+    // Target flags
+    bgCtx.fillStyle='#fff';
+    [250,400,600].forEach((fx,i)=>{
+      bgCtx.fillRect(fx,280,3,40);
+      bgCtx.fillStyle=['#FF0000','#FFFF00','#0000FF'][i];
+      bgCtx.fillRect(fx+3,280,18,12);
+      bgCtx.fillStyle='#fff';
+    });
+    // Characters on course (tiny sprites)
+    drawTinyHikaru(bgCtx, 180, 310);
+    drawTinyRival(bgCtx, 280, 305);
+  } else {
+    bgCtx.fillStyle='#0a0a1a';
+    bgCtx.fillRect(0,0,800,380);
+    // Stars
+    for(let i=0;i<80;i++){
+      bgCtx.fillStyle=`rgba(255,255,255,${0.3+Math.random()*0.7})`;
+      bgCtx.fillRect(Math.random()*800,Math.random()*380,2,2);
+    }
+  }
+}
+
+function drawTinyHikaru(ctx, x, y) {
+  ctx.fillStyle='#FFDAB9';ctx.fillRect(x,y-20,8,8);
+  ctx.fillStyle='#1a0a00';ctx.fillRect(x,y-24,8,4);
+  ctx.fillStyle='#FF4400';ctx.fillRect(x,y-22,8,2);
+  ctx.fillStyle='#0044CC';ctx.fillRect(x,y-12,8,12);
+  ctx.fillStyle='#333';ctx.fillRect(x,y,4,6);ctx.fillRect(x+4,y,4,6);
+}
+function drawTinyRival(ctx, x, y) {
+  ctx.fillStyle='#FFDAB9';ctx.fillRect(x,y-20,8,8);
+  ctx.fillStyle='#0d0d0d';ctx.fillRect(x,y-24,8,4);
+  ctx.fillStyle='#9900cc';ctx.fillRect(x,y-22,8,2);
+  ctx.fillStyle='#1a0033';ctx.fillRect(x,y-12,8,12);
+  ctx.fillStyle='#555';ctx.fillRect(x,y,4,6);ctx.fillRect(x+4,y,4,6);
+}
+
+// ─── DIALOGUE SYSTEM ────────────────────────────────────
+const dialogue = [
+  {
+    scene:'range', speaker:'NARRATOR', text:'Three years ago, the legend of KAZUMA MIYOSHI\nshook the golf world to its very CORE...',
+    portraitLeft: null, portraitRight: null
+  },
+  {
+    scene:'range', speaker:'NARRATOR', text:'But today... on this quiet driving range...\na new destiny is about to BEGIN!',
+    portraitLeft: null, portraitRight: null
+  },
+  {
+    scene:'range', speaker:'MASTER TAKEDA', text:"Boy. I've been watching you swing\nfor three weeks. You have... something.",
+    portraitLeft: (c,w,h)=>drawMentor(c,w,h,'wise',true), portraitRight: null
+  },
+  {
+    scene:'range', speaker:'HIKARU', text:"M-Master Takeda?! The THREE-TIME\nJapan Open champion?! What are you--",
+    portraitLeft: (c,w,h)=>drawMentor(c,w,h,'wise',false), portraitRight: (c,w,h)=>drawHikaru(c,w,h,'neutral',true)
+  },
+  {
+    scene:'range', speaker:'MASTER TAKEDA', text:"My knee... will never swing again.\nBut the SPIRIT DRIVE technique--\nit cannot die with me.",
+    portraitLeft: (c,w,h)=>drawMentor(c,w,h,'sad',true), portraitRight: (c,w,h)=>drawHikaru(c,w,h,'neutral',false)
+  },
+  {
+    scene:'range', speaker:'HIKARU', text:"The SPIRIT DRIVE?! That legendary shot\nthat once sent a ball 420 YARDS?!\n...You'd teach ME?",
+    portraitLeft: (c,w,h)=>drawMentor(c,w,h,'wise',false), portraitRight: (c,w,h)=>drawHikaru(c,w,h,'determined',true)
+  },
+  {
+    scene:'range', speaker:'MASTER TAKEDA', text:"In two months, the Shinkai Open.\nThat ARROGANT boy -- Ryusei Kurogane --\nhe must be STOPPED.",
+    portraitLeft: (c,w,h)=>drawMentor(c,w,h,'wise',true), portraitRight: null
+  },
+  {
+    scene:'range', speaker:'RYUSEI KUROGANE', text:"Oh? Did I hear my name?\nHeh heh... this is RICH.\nYou're entrusting your legacy to THIS amateur?",
+    portraitLeft: null, portraitRight: (c,w,h)=>drawRival(c,w,h,'smug',true)
+  },
+  {
+    scene:'range', speaker:'HIKARU', text:"You-- RYUSEI?! What are you doing here?!",
+    portraitLeft: (c,w,h)=>drawHikaru(c,w,h,'angry',true), portraitRight: (c,w,h)=>drawRival(c,w,h,'smug',false)
+  },
+  {
+    scene:'range', speaker:'RYUSEI KUROGANE', text:"I came to see the old man's 'secret student.'\nFunny. I was expecting someone... WORTHY.\nShow me what you've got. RIGHT NOW.",
+    portraitLeft: (c,w,h)=>drawHikaru(c,w,h,'angry',false), portraitRight: (c,w,h)=>drawRival(c,w,h,'taunt',true)
+  },
+  {
+    scene:'range', speaker:'HIKARU', text:"...Fine.\nI'll show you EXACTLY what I've got.\nEverything. Right here. RIGHT NOW!!",
+    portraitLeft: null, portraitRight: (c,w,h)=>drawHikaru(c,w,h,'determined',true)
+  },
+  {
+    scene:'range', speaker:'NARRATOR', text:"◆ DRIVING RANGE  ·  STAGE 1 ◆\n\nPRESS SPACE to start your swing!\nPhase 1: Hold SPACE to charge POWER\nPhase 2: Press SPACE at center for ACCURACY!",
+    portraitLeft: null, portraitRight: null
+  }
 ];
-let storyIndex=0;
 
-// ---------- BALL ----------
-let ball={x:100,y:260,vx:0,vy:0};
-let camX=0;
+let dialogueIndex = 0;
+let dialogueDisplayText = '';
+let dialogueTypingTimer = null;
+let dialogueDone = false;
 
-// ---------- WIND ----------
-let wind={speed:(Math.random()*2-1)};
+function startDialogue() {
+  document.getElementById('dialogue-overlay').style.display='block';
+  currentState = STATE.DIALOGUE;
+  dialogueIndex = 0;
+  showDialogue(0);
+}
 
-// ---------- SWING ----------
-let power=0,dir=1;
-let accuracy=0,accDir=1;
-let phase='power';
-let charging=false;
+function typeText(text, el, cb) {
+  if(dialogueTypingTimer) clearInterval(dialogueTypingTimer);
+  dialogueDone = false;
+  el.textContent = '';
+  let i = 0;
+  dialogueTypingTimer = setInterval(()=>{
+    if(i < text.length){
+      el.textContent += text[i];
+      i++;
+    } else {
+      clearInterval(dialogueTypingTimer);
+      dialogueDone = true;
+      if(cb) cb();
+    }
+  }, 28);
+}
 
-// ---------- CUT-IN ----------
-let cutinTimer=0;
-let showCutin=false;
+function showDialogue(index) {
+  const d = dialogue[index];
+  drawDialogueBg(d.scene);
+  setPortraits(d.portraitLeft, d.portraitRight);
+  document.getElementById('portrait-left').style.display = d.portraitLeft ? 'block' : 'none';
+  document.getElementById('portrait-right').style.display = d.portraitRight ? 'block' : 'none';
+  document.getElementById('dialogue-name').textContent = d.speaker;
+  const textEl = document.getElementById('dialogue-text');
+  typeText(d.text.replace(/\n/g,' \n '), textEl);
+}
 
-// ---------- INPUT ----------
-c.onmousedown=()=>{if(state==='range')charging=true;};
-c.onmouseup=()=>{
- if(state==='range'&&charging){
-  if(phase==='power'){phase='accuracy';}
-  else{triggerShot();charging=false;phase='power';}
- }
+function advanceDialogue() {
+  if(!dialogueDone) {
+    if(dialogueTypingTimer) clearInterval(dialogueTypingTimer);
+    document.getElementById('dialogue-text').textContent = dialogue[dialogueIndex].text.replace(/\n/g,' \n ');
+    dialogueDone = true;
+    return;
+  }
+  dialogueIndex++;
+  if(dialogueIndex >= dialogue.length) {
+    endDialogue();
+  } else {
+    showDialogue(dialogueIndex);
+  }
+}
+
+function endDialogue() {
+  document.getElementById('dialogue-overlay').style.display='none';
+  startGame();
+}
+
+document.getElementById('dialogue-overlay').addEventListener('click', advanceDialogue);
+
+// ─── GAME WORLD ─────────────────────────────────────────
+const GAME = {
+  phase: 'idle',     // idle | power | accuracy | flight | landed | result
+  power: 0,
+  powerDir: 1,
+  accuracyCursor: 0,
+  accuracyDir: 1,
+  accuracySpeed: 0,
+  spiritLevel: 80,
+  windX: (Math.random()-0.5)*16,
+  windY: (Math.random()-0.5)*4,
+  shotCount: 0,
+  lastShotDist: 0,
+  showCutin: false,
+
+  // Ball
+  ball: { x:400, y:480, vx:0, vy:0, z:0, vz:0, active:false },
+  ballTrail: [],
+
+  // Camera
+  cam: { x:0, y:0 },
+  camTarget: { x:0, y:0 },
+
+  // Player sprite
+  player: { x:400, y:490 },
+  rival: { x:520, y:490 },
+
+  // Tee
+  teeX: 400, teeY: 490,
+  targetX: 400, targetY: 50,
 };
 
-function triggerShot(){
- showCutin=true;
- cutinTimer=30;
- dialog.innerText="HIKARU: SPIRIT DRIVE!!!";
+function resetBall() {
+  GAME.ball = { x:GAME.teeX, y:GAME.teeY, vx:0, vy:0, z:0, vz:0, active:false };
+  GAME.ballTrail = [];
+  GAME.cam = { x:0, y:0 };
 }
 
-function shoot(){
- let p=power/100;
- let a=accuracy/100;
- let error=Math.abs(0.5-a);
- ball.vx=p*22*(1-error);
- ball.vy=-p*12*(1-error);
+function startGame() {
+  resetBall();
+  document.getElementById('hud').style.display='block';
+  updateHUD();
+  currentState = STATE.PLAYING;
+  gameLoop();
 }
 
-// ---------- UPDATE ----------
-function update(){
- t++;
- if(state==='loading'&&t>100)state='story';
-
- if(state==='range'){
-  if(charging){
-   if(phase==='power'){power+=dir*3;if(power>=100||power<=0)dir*=-1;}
-   else{accuracy+=accDir*4;if(accuracy>=100||accuracy<=0)accDir*=-1;}
-  }
-
-  if(showCutin){
-   cutinTimer--;
-   if(cutinTimer<=0){showCutin=false;shoot();}
-  }
-
-  ball.x+=ball.vx+wind.speed;
-  ball.y+=ball.vy;
-  ball.vx*=0.99; ball.vy*=0.99;
-  camX=ball.x-120;
- }
+// ─── GAME LOOP ───────────────────────────────────────────
+let lastTime = 0;
+function gameLoop(ts=0) {
+  if(currentState !== STATE.PLAYING && currentState !== STATE.SHOT_FLIGHT) return;
+  const dt = Math.min((ts - lastTime)/1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  render();
+  requestAnimationFrame(gameLoop);
 }
 
-// ---------- DRAW PORTRAIT ----------
-function portrait(char,xp,yp){
- x.fillStyle=char.color;
- x.fillRect(xp,yp,70,70);
- x.fillStyle='#000';
- x.fillText(char.name,xp+5,yp+40);
+function update(dt) {
+  // Power meter
+  if(GAME.phase === 'power') {
+    GAME.power += GAME.powerDir * dt * 120;
+    if(GAME.power >= 100) { GAME.power=100; GAME.powerDir=-1; }
+    if(GAME.power <= 0) { GAME.power=0; GAME.powerDir=1; }
+    document.getElementById('power-fill').style.width = GAME.power+'%';
+  }
+  // Accuracy meter
+  if(GAME.phase === 'accuracy') {
+    GAME.accuracyCursor += GAME.accuracyDir * GAME.accuracySpeed * dt;
+    if(GAME.accuracyCursor >= 100) { GAME.accuracyCursor=100; GAME.accuracyDir=-1; }
+    if(GAME.accuracyCursor <= 0) { GAME.accuracyCursor=0; GAME.accuracyDir=1; }
+    document.getElementById('accuracy-fill').style.left = GAME.accuracyCursor+'%';
+  }
+  // Ball flight
+  if(GAME.phase === 'flight') {
+    const b = GAME.ball;
+    if(b.active) {
+      GAME.ballTrail.push({x:b.x, y:b.y, z:b.z, age:0});
+      if(GAME.ballTrail.length>24) GAME.ballTrail.shift();
+      GAME.ballTrail.forEach(t=>t.age++);
+
+      b.x += b.vx * dt * 60;
+      b.y += b.vy * dt * 60;
+      b.z += b.vz * dt * 60;
+      b.vz -= 0.28 * dt * 60; // gravity
+      b.vx += GAME.windX * 0.0008 * dt * 60;
+
+      // Camera follow
+      GAME.cam.x += (b.x - 400 - GAME.cam.x) * 0.08;
+      GAME.cam.y += (b.y - 300 - GAME.cam.y) * 0.08;
+
+      if(b.z <= 0 && b.vz < 0) {
+        b.z = 0;
+        if(Math.abs(b.vy) < 0.5 && Math.abs(b.vx) < 0.5) {
+          // Stopped
+          onBallLanded();
+        } else {
+          // Bounce/roll
+          playLand();
+          b.vz = Math.abs(b.vz) * 0.35;
+          b.vx *= 0.7;
+          b.vy *= 0.7;
+          if(Math.abs(b.vz) < 0.5) b.vz = 0;
+        }
+      }
+    }
+  }
 }
 
-// ---------- DRAW ----------
-function draw(){
- x.clearRect(0,0,640,360);
-
- if(state==='loading'){
-  x.fillStyle='#000';x.fillRect(0,0,640,360);
-  x.fillStyle='#0f0';x.fillText('LOADING...',260,180);
-  return;
- }
-
- if(state==='story'){
-  let s=story[storyIndex];
-  x.fillStyle='#112';x.fillRect(0,0,640,360);
-  dialog.innerText=s.text;
-
-  if(s.speaker==='old')portrait(chars.old,40,200);
-  if(s.speaker==='player')portrait(chars.player,520,200);
-  if(s.speaker==='rival')portrait(chars.rival,520,200);
-
-  x.fillStyle='#fff';x.fillText('CLICK...',280,50);
-  c.onclick=()=>{storyIndex++;if(storyIndex>=story.length){state='range';c.onclick=null;}};
-  return;
- }
-
- if(state==='range'){
-  // sky
-  x.fillStyle='#6ec6ff';x.fillRect(0,0,640,120);
-
-  // ground
-  for(let i=0;i<240;i+=4){
-   x.fillStyle='rgb(0,'+(120+i/4)+',0)';
-   x.fillRect(0,120+i,640,4);
-  }
-
-  x.save();
-  x.translate(-camX,0);
-
-  // ball trail
-  x.fillStyle='rgba(255,255,255,0.3)';
-  x.fillRect(ball.x-10,ball.y,10,2);
-
-  // ball
-  x.fillStyle='#fff';
-  x.beginPath();x.arc(ball.x,ball.y,5,0,Math.PI*2);x.fill();
-
-  // player sprite
-  x.fillStyle='#ff0';
-  x.fillRect(80,250,12,12);
-
-  // rival sprite
-  x.fillStyle='#f00';
-  x.fillRect(200,250,12,12);
-
-  x.restore();
-
-  // HUD
-  x.fillStyle='#fff';
-  x.fillText('WIND '+wind.speed.toFixed(2),10,20);
-  x.fillText('DIST '+Math.floor(ball.x-100)+' m',500,20);
-
-  // power bar
-  x.fillStyle='#000';x.fillRect(200,320,240,10);
-  x.fillStyle='#f00';x.fillRect(200,320,power*2.4,10);
-  if(phase==='accuracy'){
-   x.fillStyle='#00f';x.fillRect(200,335,accuracy*2.4,8);
-  }
-
-  // CUT-IN EFFECT
-  if(showCutin){
-   x.fillStyle='rgba(255,255,255,0.8)';
-   x.fillRect(0,0,640,360);
-   portrait(chars.player,260,140);
-   x.fillStyle='#000';
-   x.fillText('SPIRIT DRIVE!!!',240,120);
-  }
- }
+function onBallLanded() {
+  GAME.phase = 'landed';
+  GAME.ball.active = false;
+  const dx = GAME.ball.x - GAME.teeX;
+  const dy = GAME.ball.y - GAME.teeY;
+  const dist = Math.round(Math.sqrt(dx*dx+dy*dy) * 0.85);
+  GAME.lastShotDist = dist;
+  GAME.shotCount++;
+  document.getElementById('hud-lastdist').textContent = dist+' YDS';
+  document.getElementById('hud-shot').textContent = GAME.shotCount+1;
+  showShotResult(dist);
+  // Wind change
+  GAME.windX = (Math.random()-0.5)*16;
+  GAME.windY = (Math.random()-0.5)*4;
+  updateHUD();
+  setTimeout(()=>showGameOver(dist), 1800);
 }
 
-function loop(){update();draw();requestAnimationFrame(loop);}loop();
+function showShotResult(dist) {
+  const el = document.getElementById('shot-result');
+  let label = 'GOOD SHOT';
+  if(dist>260) label='GREAT SHOT!!';
+  if(dist>300) label='INCREDIBLE!!';
+  if(dist>340) label='LEGENDARY!!!!';
+  el.innerHTML = label+'<br><span style="font-size:18px;color:#fff;">'+dist+' YARDS</span>';
+  el.style.display='block';
+  setTimeout(()=>{el.style.display='none';},1600);
+}
+
+function showGameOver(dist) {
+  const comments = [
+    "...Not bad. For a BEGINNER.",
+    "Hmph. I've seen better from amateurs at the park.",
+    "Interesting form. Wasteful, but... interesting.",
+    "Don't get cocky. That was barely acceptable.",
+    "...I'll admit. That was almost... impressive.",
+    "The SPIRIT DRIVE? Don't make me laugh. NOT YET.",
+  ];
+  document.getElementById('final-distance').textContent = '◆ '+dist+' YARDS ◆';
+  document.getElementById('rival-comment').textContent = '"'+comments[Math.floor(Math.random()*comments.length)]+'" — RYUSEI';
+  document.getElementById('game-over-screen').style.display='flex';
+  currentState = STATE.SHOT_RESULT;
+}
+
+function resetForNextShot() {
+  document.getElementById('game-over-screen').style.display='none';
+  GAME.phase='idle';
+  resetBall();
+  GAME.player = {x:GAME.teeX, y:GAME.teeY};
+  GAME.rival = {x:GAME.teeX+120, y:GAME.teeY};
+  GAME.cam={x:0,y:0};
+  currentState = STATE.PLAYING;
+  requestAnimationFrame(gameLoop);
+}
+
+// ─── INPUT ───────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space') e.preventDefault();
+  handleInput(e.code);
+});
+document.addEventListener('click', ()=>{
+  if(currentState===STATE.PLAYING || currentState===STATE.SHOT_FLIGHT) handleInput('Space');
+});
+
+function handleInput(code) {
+  if(currentState===STATE.LOADING || currentState===STATE.TITLE) {
+    advanceLoadingOrTitle();
+    return;
+  }
+  if(currentState===STATE.DIALOGUE) {
+    if(code==='Space'||code==='Enter'||code==='ArrowRight') advanceDialogue();
+    return;
+  }
+  if(currentState===STATE.SHOT_RESULT) {
+    resetForNextShot();
+    return;
+  }
+  if(currentState===STATE.PLAYING) {
+    if(code==='Space'||code==='Enter') {
+      if(GAME.phase==='idle') startSwingPhase1();
+      else if(GAME.phase==='power') endSwingPhase1();
+      else if(GAME.phase==='accuracy') endSwingPhase2();
+    }
+  }
+}
+
+function startSwingPhase1() {
+  GAME.phase='power';
+  GAME.power=0;
+  GAME.powerDir=1;
+  playTone(220,'square',0.1,0.15);
+}
+
+function endSwingPhase1() {
+  GAME.phase='accuracy';
+  GAME.accuracyCursor=0;
+  GAME.accuracyDir=1;
+  GAME.accuracySpeed = 80 + GAME.power * 0.5;
+  playTone(440,'square',0.08,0.2);
+}
+
+function endSwingPhase2() {
+  // Calculate accuracy: how close cursor is to 50%
+  const acc = 1 - Math.abs(GAME.accuracyCursor - 50) / 50;
+  const spiritBonus = GAME.spiritLevel / 100;
+  const finalPower = GAME.power * (0.7 + acc*0.3) * (0.9 + spiritBonus*0.2);
+  GAME.phase='flight';
+
+  // Show cutin if powerful enough
+  if(finalPower > 70) {
+    showCutin(finalPower);
+    setTimeout(()=>launchBall(finalPower, acc), 800);
+  } else {
+    launchBall(finalPower, acc);
+  }
+
+  // Spirit drain
+  GAME.spiritLevel = Math.max(0, GAME.spiritLevel - 15);
+  document.getElementById('spirit-fill').style.width = GAME.spiritLevel+'%';
+  const stars = '★'.repeat(Math.ceil(GAME.spiritLevel/34))+'☆'.repeat(3-Math.ceil(GAME.spiritLevel/34));
+  document.getElementById('spirit-count').textContent = stars;
+}
+
+function launchBall(power, acc) {
+  const angle = -Math.PI/2 + (acc-0.5)*0.3; // slight hook/slice based on accuracy
+  const speed = power * 0.18;
+  GAME.ball.x = GAME.teeX;
+  GAME.ball.y = GAME.teeY;
+  GAME.ball.z = 0;
+  GAME.ball.vx = Math.cos(angle)*speed*0.4;
+  GAME.ball.vy = -speed;
+  GAME.ball.vz = speed * 0.6;
+  GAME.ball.active = true;
+
+  playSwing();
+  setTimeout(()=>{ playImpact(power); flashScreen(); }, 60);
+  currentState = STATE.SHOT_FLIGHT;
+}
+
+function flashScreen() {
+  const fl = document.getElementById('flash-overlay');
+  fl.style.opacity = '1';
+  fl.style.transition = 'opacity 0.2s';
+  setTimeout(()=>{ fl.style.opacity='0'; },80);
+}
+
+// ─── CUT-IN ──────────────────────────────────────────────
+function showCutin(power) {
+  playCutin();
+  const el = document.getElementById('cutin');
+  const cutinCanvas = document.getElementById('cutin-portrait');
+  const cctx = cutinCanvas.getContext('2d');
+  cctx.imageSmoothingEnabled = false;
+  drawHikaru(cctx, 260, 280, 'determined', true);
+
+  let move = 'SPIRIT DRIVE!!';
+  if(power > 90) move = 'SPIRIT DRIVE\nULTIMATE!!!';
+
+  document.getElementById('cutin-text').innerHTML = move.replace('\n','<br>');
+  el.style.display='block';
+  setTimeout(()=>{ el.style.display='none'; }, 700);
+}
+
+// ─── RENDER ──────────────────────────────────────────────
+function render() {
+  ctx.clearRect(0,0,800,600);
+  const camX = Math.round(GAME.cam.x);
+  const camY = Math.round(GAME.cam.y);
+
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  drawCourse(ctx, camX, camY);
+  drawSprites(ctx);
+  drawBall(ctx);
+  drawBallTrail(ctx);
+
+  ctx.restore();
+
+  drawHUDOverlay();
+}
+
+function drawCourse(ctx, camX, camY) {
+  const W=800, H=600;
+  // Sky
+  const sky = ctx.createLinearGradient(camX,camY,camX,camY+H*0.5);
+  sky.addColorStop(0,'#1a3a6e');
+  sky.addColorStop(1,'#4a7aae');
+  ctx.fillStyle=sky;
+  ctx.fillRect(camX,camY,W,H*0.5);
+
+  // Clouds
+  ctx.fillStyle='rgba(200,220,255,0.5)';
+  [[100-camX*0.3,60+camY*0.1,80,20],[350-camX*0.2,80+camY*0.1,60,16],[600-camX*0.25,55+camY*0.1,90,24]].forEach(([x,y,w,h])=>{
+    const rx=Math.round(x), ry=Math.round(y);
+    ctx.fillRect(rx,ry,w,h);ctx.fillRect(rx+8,ry-8,w-16,h);ctx.fillRect(rx+4,ry-4,w-8,h+8);
+  });
+
+  // Sun
+  ctx.fillStyle='#FFE066';
+  ctx.beginPath();ctx.arc(700+camX*0.05,80+camY*0.05,40,0,Math.PI*2);ctx.fill();
+  // Sun rays
+  ctx.strokeStyle='rgba(255,220,80,0.3)';ctx.lineWidth=3;
+  for(let i=0;i<8;i++){
+    const a=i/8*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(700+camX*0.05+Math.cos(a)*44,80+camY*0.05+Math.sin(a)*44);
+    ctx.lineTo(700+camX*0.05+Math.cos(a)*60,80+camY*0.05+Math.sin(a)*60);
+    ctx.stroke();
+  }
+
+  // Mode 7 style ground - perspective stripes
+  const groundTop = camY + 300;
+  for(let row=0;row<350;row++){
+    const t = row/350;
+    const greenAmt = Math.floor(60 + t*100);
+    const stripe = Math.floor((row+camX/20+4)/8)%2;
+    ctx.fillStyle = stripe ? `rgb(0,${greenAmt},20)` : `rgb(0,${Math.max(0,greenAmt-25)},10)`;
+    ctx.fillRect(camX,groundTop+row,W,1);
+  }
+
+  // Fairway highlight (lighter strip down center)
+  const fairwayGrad = ctx.createLinearGradient(300,groundTop,500,groundTop);
+  fairwayGrad.addColorStop(0,'rgba(0,180,40,0)');
+  fairwayGrad.addColorStop(0.5,'rgba(0,180,40,0.25)');
+  fairwayGrad.addColorStop(1,'rgba(0,180,40,0)');
+  ctx.fillStyle=fairwayGrad;
+  ctx.fillRect(camX,groundTop,W,300);
+
+  // Target circle (250yd flag)
+  const targetX=400, targetY=100;
+  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath();ctx.arc(targetX,targetY,30,0,Math.PI*2);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#fff';ctx.fillRect(targetX-1,targetY-50,3,50);
+  ctx.fillStyle='#FF0000';ctx.fillRect(targetX+2,targetY-50,18,10);
+  ctx.fillStyle='rgba(255,255,255,0.7)';
+  ctx.font='7px monospace';ctx.textAlign='center';
+  ctx.fillText('250 YDS',targetX,targetY+18);
+  ctx.textAlign='left';
+
+  // Tee marker
+  ctx.fillStyle='#FFD700';
+  ctx.fillRect(GAME.teeX-16, GAME.teeY+4, 32, 4);
+  ctx.font='8px monospace';
+  ctx.fillStyle='#FFD700';
+  ctx.textAlign='center';
+  ctx.fillText('TEE',GAME.teeX, GAME.teeY+18);
+  ctx.textAlign='left';
+
+  // Distance markers
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  [200,300,400].forEach((y,i)=>{
+    ctx.fillRect(340,y,120,1);
+    ctx.font='7px monospace';ctx.textAlign='center';
+    ctx.fillStyle='rgba(255,255,255,0.4)';
+    ctx.fillText([100,200,300][i]+' YDS',400,y-4);
+    ctx.textAlign='left';
+  });
+}
+
+function drawSprites(ctx) {
+  // Player sprite
+  drawGameHikaru(ctx, Math.round(GAME.player.x), Math.round(GAME.player.y));
+  // Rival sprite
+  drawGameRival(ctx, Math.round(GAME.rival.x), Math.round(GAME.rival.y));
+}
+
+function drawGameHikaru(ctx, x, y) {
+  // Simple pixelart character
+  const px = x-8, py = y-32;
+  ctx.fillStyle='#FFDAB9';ctx.fillRect(px+4,py,8,8);
+  ctx.fillStyle='#1a0a00';ctx.fillRect(px+2,py-4,10,6);
+  ctx.fillStyle='#FF4400';ctx.fillRect(px+2,py-2,10,3);
+  ctx.fillStyle='#fff';ctx.fillRect(px+5,py+3,2,2);ctx.fillRect(px+9,py+3,2,2);
+  ctx.fillStyle='#0044CC';ctx.fillRect(px+2,py+8,12,10);
+  ctx.fillStyle='#FFDAB9';ctx.fillRect(px,py+8,4,8);ctx.fillRect(px+12,py+8,4,8);
+  if(GAME.phase==='power'||GAME.phase==='accuracy') {
+    // Club raised
+    ctx.fillStyle='#888';ctx.fillRect(px+14,py-8,3,18);
+    ctx.fillStyle='#555';ctx.fillRect(px+13,py+8,6,4);
+  }
+  ctx.fillStyle='#222';ctx.fillRect(px+2,py+18,6,8);ctx.fillRect(px+8,py+18,6,8);
+}
+
+function drawGameRival(ctx, x, y) {
+  const px=x-8, py=y-32;
+  ctx.fillStyle='#FFDAB9';ctx.fillRect(px+4,py,8,8);
+  ctx.fillStyle='#0d0d0d';ctx.fillRect(px+2,py-4,10,6);
+  ctx.fillStyle='#9900cc';ctx.fillRect(px+2,py-2,10,3);
+  ctx.fillStyle='#fff';ctx.fillRect(px+5,py+3,2,2);ctx.fillRect(px+9,py+3,2,2);
+  ctx.fillStyle='#1a0033';ctx.fillRect(px+2,py+8,12,10);
+  ctx.fillStyle='#FFDAB9';ctx.fillRect(px,py+8,4,8);ctx.fillRect(px+12,py+8,4,8);
+  ctx.fillStyle='#444';ctx.fillRect(px+2,py+18,6,8);ctx.fillRect(px+8,py+18,6,8);
+  // Arms crossed
+  ctx.fillStyle='#FFDAB9';
+  ctx.fillRect(px-2,py+10,16,4);
+}
+
+function drawBall(ctx) {
+  if(!GAME.ball.active && GAME.phase==='idle') {
+    // Show ball on tee
+    ctx.fillStyle='#fff';
+    ctx.fillRect(GAME.teeX-3, GAME.teeY-4, 6, 6);
+    // Tee stick
+    ctx.fillStyle='#FFD700';
+    ctx.fillRect(GAME.teeX-1, GAME.teeY+2, 2, 6);
+    return;
+  }
+  if(!GAME.ball.active) return;
+  const b = GAME.ball;
+  const shadowScale = Math.max(0.2, 1 - b.z/200);
+  // Shadow
+  ctx.fillStyle=`rgba(0,0,0,${0.4*shadowScale})`;
+  ctx.beginPath();ctx.ellipse(b.x, b.y, 6*shadowScale, 3*shadowScale, 0, 0, Math.PI*2);ctx.fill();
+  // Ball (white with slight gradient feel)
+  ctx.fillStyle='#fff';
+  ctx.fillRect(Math.round(b.x)-3, Math.round(b.y-b.z)-3, 6, 6);
+  // Shine
+  ctx.fillStyle='rgba(255,255,200,0.8)';
+  ctx.fillRect(Math.round(b.x)-2, Math.round(b.y-b.z)-3, 2, 2);
+}
+
+function drawBallTrail(ctx) {
+  GAME.ballTrail.forEach((t,i)=>{
+    const alpha = (1 - t.age/24) * 0.6;
+    if(alpha<=0) return;
+    ctx.fillStyle=`rgba(255,220,80,${alpha})`;
+    const s = Math.max(1, 4*(1-t.age/24));
+    ctx.fillRect(Math.round(t.x)-s/2, Math.round(t.y-t.z)-s/2, s, s);
+  });
+}
+
+function drawHUDOverlay() {
+  // Wind arrow
+  const wx = GAME.windX, wy = GAME.windY;
+  const wspeed = Math.round(Math.sqrt(wx*wx+wy*wy));
+  const wangle = Math.atan2(wy,wx);
+  const arrows = ['←','↙','↓','↘','→','↗','↑','↖'];
+  const idx = Math.round(((wangle + Math.PI) / (Math.PI*2)) * 8) % 8;
+  document.getElementById('hud-wind').textContent = arrows[idx]+' '+wspeed+' MPH';
+}
+
+function updateHUD() {
+  const wx=GAME.windX, wy=GAME.windY;
+  const wspeed=Math.round(Math.sqrt(wx*wx+wy*wy));
+  const wangle=Math.atan2(wy,wx);
+  const arrows=['←','↙','↓','↘','→','↗','↑','↖'];
+  const idx=Math.round(((wangle+Math.PI)/(Math.PI*2))*8)%8;
+  document.getElementById('hud-wind').textContent=arrows[idx]+' '+wspeed+' MPH';
+}
+
+// ─── LOADING SEQUENCE ────────────────────────────────────
+const loadingSteps = [
+  [10,'INITIALIZING SPIRIT DRIVE ENGINE...'],
+  [20,'LOADING COURSE DATA...'],
+  [30,'CHANNELING MASTER TAKEDA MEMORIES...'],
+  [42,'RENDERING CHARACTER PORTRAITS...'],
+  [55,'CALIBRATING WIND PHYSICS...'],
+  [67,'AWAKENING RIVAL RYUSEI...'],
+  [78,'POLISHING GOLF BALLS...'],
+  [88,'COMPOSING CHIPTUNE SOUNDTRACK...'],
+  [95,'CHARGING SPIRIT METER...'],
+  [100,'READY!'],
+];
+let loadStep=0;
+function runLoading() {
+  if(loadStep>=loadingSteps.length){
+    document.getElementById('loading-status').textContent='';
+    document.getElementById('press-start').style.display='block';
+    currentState=STATE.LOADING; // wait for input
+    return;
+  }
+  const [pct,msg]=loadingSteps[loadStep];
+  document.getElementById('loading-bar').style.width=pct+'%';
+  document.getElementById('loading-status').textContent=msg;
+  loadStep++;
+  setTimeout(runLoading, 280+Math.random()*180);
+}
+
+function advanceLoadingOrTitle() {
+  getAudio(); // unlock audio context
+  if(currentState===STATE.LOADING && document.getElementById('press-start').style.display==='block') {
+    document.getElementById('loading-screen').style.display='none';
+    showTitleScreen();
+  } else if(currentState===STATE.TITLE) {
+    document.getElementById('title-screen').style.display='none';
+    startBGMusic();
+    canvas.style.display='none';
+    startDialogue();
+  }
+}
+
+function showTitleScreen() {
+  currentState=STATE.TITLE;
+  document.getElementById('title-screen').style.display='flex';
+  // Draw animated title BG
+  const tc=canvas;
+  tc.style.display='block';
+  tc.style.position='fixed';
+  tc.style.top='0';tc.style.left='50%';tc.style.transform='translateX(-50%)';
+  tc.style.zIndex='89';
+  function animTitle() {
+    if(currentState!==STATE.TITLE) return;
+    const t=Date.now()/1000;
+    ctx.fillStyle='#000008';ctx.fillRect(0,0,800,600);
+    // Starfield
+    ctx.fillStyle='#fff';
+    for(let i=0;i<100;i++){
+      const sx=(Math.sin(i*7.3+t*0.1)*400+400)%800;
+      const sy=(Math.cos(i*5.1+t*0.05)*300+300)%600;
+      ctx.fillRect(Math.round(sx),Math.round(sy),(i%3===0)?2:1,(i%3===0)?2:1);
+    }
+    // Rotating golf ball
+    const bx=400, by=220;
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(bx+Math.sin(t)*60,by,24,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ddd';
+    ctx.beginPath();ctx.arc(bx+Math.sin(t)*60+6,by-4,6,0,Math.PI*2);ctx.fill();
+    // Ground
+    for(let row=0;row<120;row++){
+      const g=Math.floor(50+row*0.8);
+      const stripe=Math.floor((row+t*20)/8)%2;
+      ctx.fillStyle=stripe?`rgb(0,${g},0)`:`rgb(0,${Math.max(0,g-20)},0)`;
+      const w=40+row*7.2;
+      ctx.fillRect(400-w/2,440+row,w,1);
+    }
+    requestAnimationFrame(animTitle);
+  }
+  animTitle();
+}
+
+// ─── BOOT ────────────────────────────────────────────────
+window.addEventListener('load', ()=>{
+  setTimeout(runLoading, 500);
+  // Handle resize
+  function resize() {
+    const scale = Math.min(window.innerWidth/800, window.innerHeight/600);
+    canvas.style.width = Math.floor(800*scale)+'px';
+    canvas.style.height = Math.floor(600*scale)+'px';
+    const overlay = document.getElementById('dialogue-overlay');
+    overlay.style.transformOrigin='top center';
+    overlay.style.transform=`scale(${scale})`;
+    overlay.style.width='800px';
+    overlay.style.marginLeft=((window.innerWidth-800*scale)/2)+'px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+});
 </script>
 </body>
 </html>
