@@ -1,1 +1,79 @@
 
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Super Golf Challenge SNES+</title>
+<style>
+body{margin:0;background:#0a1f14;color:#fff;font-family:monospace;text-align:center}
+canvas{display:block;margin:10px auto;border:6px solid #111;image-rendering:pixelated}
+</style>
+</head>
+<body>
+<h1>SUPER GOLF CHALLENGE DX</h1>
+<canvas id="c" width="640" height="360"></canvas>
+<p id="hint"></p>
+<script>
+const c=document.getElementById('c');
+const x=c.getContext('2d');
+const hint=document.getElementById('hint');let state='loading'; let t=0;
+
+// AUDIO (multi channel feel) const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC(); function beep(f,d,type='square',v=0.05){ let o=ac.createOscillator(),g=ac.createGain(); o.type=type;o.frequency.value=f;g.gain.value=v; o.connect(g);g.connect(ac.destination); o.start();o.stop(ac.currentTime+d); } function music(){ const lead=[523,659,784,659]; const bass=[130,130,196,130]; let i=0; setInterval(()=>{ beep(lead[i%lead.length],0.08,'square',0.05); beep(bass[i%bass.length],0.12,'triangle',0.03); i++; },140); } window.addEventListener('click',()=>{if(ac.state!=='running')ac.resume();music();},{once:true});
+
+// PLAYER SPRITE (very simple animation) let swingFrame=0; let swinging=false;
+
+// BALL let ball={x:100,y:260,vx:0,vy:0}; let camX=0;
+
+// WIND let wind={speed:(Math.random()*2-1)};
+
+// POWER SYSTEM (SNES style 2-phase) let power=0,dir=1; let accuracy=0,accDir=1; let phase='power'; let charging=false;
+
+c.onmousedown=()=>{ if(state==='range'){charging=true;} };
+
+c.onmouseup=()=>{ if(state==='range'&&charging){ if(phase==='power'){phase='accuracy';} else{shoot();charging=false;phase='power';} } };
+
+function shoot(){ swinging=true; swingFrame=0; let p=power/100; let a=accuracy/100; let error=Math.abs(0.5-a); ball.vx=p18(1-error); ball.vy=-p8(1-error); beep(200+400*p,0.1); }
+
+function update(){ t++; if(state==='loading'&&t>120)state='intro';
+
+if(state==='range'){ if(charging){ if(phase==='power'){ power+=dir3;if(power>=100||power<=0)dir=-1; }else{ accuracy+=accDir4;if(accuracy>=100||accuracy<=0)accDir=-1; } }
+
+ball.x+=ball.vx+wind.speed; ball.y+=ball.vy; ball.vx*=0.99; ball.vy*=0.99;
+
+camX=ball.x-120;
+
+if(swinging){swingFrame++; if(swingFrame>10)swinging=false;} } }
+
+function drawGolfer(){ let px=80; let py=260; x.fillStyle='#ffcc00'; if(swinging){ x.fillRect(px,py-10+Math.sin(swingFrame)*3,10,10); }else{ x.fillRect(px,py-10,10,10); } }
+
+function draw(){ x.clearRect(0,0,640,360);
+
+if(state==='loading'){ x.fillStyle='#000';x.fillRect(0,0,640,360); x.fillStyle='#0f0';x.fillText('LOADING '+Math.floor(t)+'%',250,180); return; }
+
+if(state==='intro'){ x.fillStyle='#123';x.fillRect(0,0,640,360); x.fillStyle='#fff'; x.fillText('OLD PRO: "HEY... STEP IN FOR ME!"',150,160); x.fillText('CLICK TO START',240,200); c.onclick=()=>{state='range';c.onclick=null}; return; }
+
+if(state==='range'){ hint.innerText='Click: power → accuracy → swing';
+
+// sky x.fillStyle='#6ec6ff';x.fillRect(0,0,640,120);
+
+// ground (mode7-ish stripes) for(let i=0;i<240;i+=4){ let shade=50+i; x.fillStyle='rgb(0,'+(100+shade/4)+',0)'; x.fillRect(0,120+i,640,4); }
+
+// camera translate x.save(); x.translate(-camX,0);
+
+// ball x.fillStyle='#fff'; x.beginPath();x.arc(ball.x,ball.y,5,0,Math.PI*2);x.fill();
+
+drawGolfer();
+
+x.restore();
+
+// HUD x.fillStyle='#fff'; x.fillText('WIND '+wind.speed.toFixed(2),10,20); x.fillText('DIST '+Math.floor(ball.x-100)+' m',500,20);
+
+// wind arrow x.beginPath(); x.moveTo(100,30); x.lineTo(100+wind.speed*30,30); x.strokeStyle='#fff';x.stroke();
+
+// power bar x.fillStyle='#000';x.fillRect(200,320,240,10); x.fillStyle='#f00';x.fillRect(200,320,power*2.4,10);
+
+if(phase==='accuracy'){ x.fillStyle='#00f';x.fillRect(200,335,accuracy*2.4,8); } } }
+
+function loop(){update();draw();requestAnimationFrame(loop);}loop(); </script>
+
+</body>
+</html>
