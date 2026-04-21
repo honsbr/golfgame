@@ -1,75 +1,192 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Super Golf Challenge: Spirit Drive</title>
+<title>Super Golf Challenge: Spirit Drive DX</title>
 <style>
-body{margin:0;background:#08140c;color:#fff;font-family:monospace;text-align:center}
+body{margin:0;background:#06110a;color:#fff;font-family:monospace;text-align:center}
 canvas{display:block;margin:10px auto;border:6px solid #111;image-rendering:pixelated}
-#dialog{height:40px}
+#dialog{height:60px}
 </style>
 </head>
 <body>
-<h1>SUPER GOLF CHALLENGE: SPIRIT DRIVE</h1>
+<h1>SPIRIT DRIVE DX</h1>
 <canvas id="c" width="640" height="360"></canvas>
 <div id="dialog"></div>
 <script>
 const c=document.getElementById('c');
 const x=c.getContext('2d');
-const dialog=document.getElementById('dialog');let state='loading'; let t=0;
+const dialog=document.getElementById('dialog');
 
-// ---------- AUDIO ---------- const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC(); function beep(f,d,type='square',v=0.05){let o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);} function music(){const lead=[659,784,988,784];let i=0;setInterval(()=>beep(lead[i++%lead.length],0.1),150);} window.addEventListener('click',()=>{if(ac.state!=='running')ac.resume();music();},{once:true});
+let state='loading';
+let t=0;
 
-// ---------- STORY ---------- const story=[ "A stormy morning... destiny calls.", "OLD PRO: 'My back... it's over... kid... take my place...'"," "YOU: 'Me? But I'm just a weekend golfer!'"," "OLD PRO: 'NO... YOU HAVE THE SWING OF DESTINY.'", "THE LEGENDARY TOURNAMENT AWAITS..." ]; let storyIndex=0;
+// ---------- CHARACTERS ----------
+const chars={
+ player:{name:'HIKARU',color:'#ff0'},
+ rival:{name:'RAZOR',color:'#f00'},
+ old:{name:'OLD PRO',color:'#ccc'}
+};
 
-// ---------- PLAYER ---------- let player={name:'HIKARU',power:1.0,control:1.0,spirit:100};
+// ---------- STORY ----------
+const story=[
+ {text:"DESTINY IS ON THE FAIRWAY...",speaker:'old'},
+ {text:"YOU MUST PLAY...",speaker:'old'},
+ {text:"I WILL CRUSH YOU...",speaker:'rival'},
+ {text:"MY DRIVE WILL REACH THE HORIZON!",speaker:'player'}
+];
+let storyIndex=0;
 
-// ---------- BALL ---------- let ball={x:100,y:260,vx:0,vy:0}; let camX=0;
+// ---------- BALL ----------
+let ball={x:100,y:260,vx:0,vy:0};
+let camX=0;
 
-// ---------- WIND ---------- let wind={speed:(Math.random()*2-1)};
+// ---------- WIND ----------
+let wind={speed:(Math.random()*2-1)};
 
-// ---------- SWING SYSTEM ---------- let power=0,dir=1; let accuracy=0,accDir=1; let phase='power'; let charging=false;
+// ---------- SWING ----------
+let power=0,dir=1;
+let accuracy=0,accDir=1;
+let phase='power';
+let charging=false;
 
-// ---------- INPUT ---------- c.onmousedown=()=>{if(state==='range')charging=true;}; c.onmouseup=()=>{ if(state==='range'&&charging){ if(phase==='power'){phase='accuracy';} else{shoot();charging=false;phase='power';} } };
+// ---------- CUT-IN ----------
+let cutinTimer=0;
+let showCutin=false;
 
-function shoot(){ let p=power/100; let a=accuracy/100; let error=Math.abs(0.5-a); let spiritBoost=player.spirit/100;
+// ---------- INPUT ----------
+c.onmousedown=()=>{if(state==='range')charging=true;};
+c.onmouseup=()=>{
+ if(state==='range'&&charging){
+  if(phase==='power'){phase='accuracy';}
+  else{triggerShot();charging=false;phase='power';}
+ }
+};
 
-ball.vx=p20(1-error)spiritBoost; ball.vy=-p10*(1-error); player.spirit-=10;
+function triggerShot(){
+ showCutin=true;
+ cutinTimer=30;
+ dialog.innerText="HIKARU: SPIRIT DRIVE!!!";
+}
 
-dialog.innerText="HIKARU: 'SPIRIT DRIVE!!!'"; beep(300+500*p,0.15); }
+function shoot(){
+ let p=power/100;
+ let a=accuracy/100;
+ let error=Math.abs(0.5-a);
+ ball.vx=p*22*(1-error);
+ ball.vy=-p*12*(1-error);
+}
 
-// ---------- UPDATE ---------- function update(){ t++; if(state==='loading'&&t>120)state='story';
+// ---------- UPDATE ----------
+function update(){
+ t++;
+ if(state==='loading'&&t>100)state='story';
 
-if(state==='story'){ dialog.innerText=story[storyIndex]; }
+ if(state==='range'){
+  if(charging){
+   if(phase==='power'){power+=dir*3;if(power>=100||power<=0)dir*=-1;}
+   else{accuracy+=accDir*4;if(accuracy>=100||accuracy<=0)accDir*=-1;}
+  }
 
-if(state==='range'){ if(charging){ if(phase==='power'){power+=dir3;if(power>=100||power<=0)dir=-1;} else{accuracy+=accDir4;if(accuracy>=100||accuracy<=0)accDir=-1;} }
+  if(showCutin){
+   cutinTimer--;
+   if(cutinTimer<=0){showCutin=false;shoot();}
+  }
 
-ball.x+=ball.vx+wind.speed; ball.y+=ball.vy; ball.vx*=0.99; ball.vy*=0.99; camX=ball.x-120; } }
+  ball.x+=ball.vx+wind.speed;
+  ball.y+=ball.vy;
+  ball.vx*=0.99; ball.vy*=0.99;
+  camX=ball.x-120;
+ }
+}
 
-// ---------- DRAW ---------- function draw(){ x.clearRect(0,0,640,360);
+// ---------- DRAW PORTRAIT ----------
+function portrait(char,xp,yp){
+ x.fillStyle=char.color;
+ x.fillRect(xp,yp,70,70);
+ x.fillStyle='#000';
+ x.fillText(char.name,xp+5,yp+40);
+}
 
-if(state==='loading'){ x.fillStyle='#000';x.fillRect(0,0,640,360); x.fillStyle='#0f0';x.fillText('LOADING...',260,180); return; }
+// ---------- DRAW ----------
+function draw(){
+ x.clearRect(0,0,640,360);
 
-if(state==='story'){ x.fillStyle='#112';x.fillRect(0,0,640,360); x.fillStyle='#fff'; x.fillText('CLICK TO ADVANCE STORY',200,200); c.onclick=()=>{storyIndex++;if(storyIndex>=story.length){state='range';c.onclick=null;} }; return; }
+ if(state==='loading'){
+  x.fillStyle='#000';x.fillRect(0,0,640,360);
+  x.fillStyle='#0f0';x.fillText('LOADING...',260,180);
+  return;
+ }
 
-if(state==='range'){ // sky x.fillStyle='#6ec6ff';x.fillRect(0,0,640,120);
+ if(state==='story'){
+  let s=story[storyIndex];
+  x.fillStyle='#112';x.fillRect(0,0,640,360);
+  dialog.innerText=s.text;
 
-// ground stripes for(let i=0;i<240;i+=4){ x.fillStyle='rgb(0,'+(120+i/4)+',0)'; x.fillRect(0,120+i,640,4); }
+  if(s.speaker==='old')portrait(chars.old,40,200);
+  if(s.speaker==='player')portrait(chars.player,520,200);
+  if(s.speaker==='rival')portrait(chars.rival,520,200);
 
-x.save(); x.translate(-camX,0);
+  x.fillStyle='#fff';x.fillText('CLICK...',280,50);
+  c.onclick=()=>{storyIndex++;if(storyIndex>=story.length){state='range';c.onclick=null;}};
+  return;
+ }
 
-// ball x.fillStyle='#fff'; x.beginPath();x.arc(ball.x,ball.y,5,0,Math.PI*2);x.fill();
+ if(state==='range'){
+  // sky
+  x.fillStyle='#6ec6ff';x.fillRect(0,0,640,120);
 
-// player x.fillStyle='#ff0'; x.fillRect(80,250,10,10);
+  // ground
+  for(let i=0;i<240;i+=4){
+   x.fillStyle='rgb(0,'+(120+i/4)+',0)';
+   x.fillRect(0,120+i,640,4);
+  }
 
-x.restore();
+  x.save();
+  x.translate(-camX,0);
 
-// HUD x.fillStyle='#fff'; x.fillText('WIND '+wind.speed.toFixed(2),10,20); x.fillText('DIST '+Math.floor(ball.x-100)+' m',500,20); x.fillText('SPIRIT '+player.spirit,10,40);
+  // ball trail
+  x.fillStyle='rgba(255,255,255,0.3)';
+  x.fillRect(ball.x-10,ball.y,10,2);
 
-// power bar x.fillStyle='#000';x.fillRect(200,320,240,10); x.fillStyle='#f00';x.fillRect(200,320,power*2.4,10);
+  // ball
+  x.fillStyle='#fff';
+  x.beginPath();x.arc(ball.x,ball.y,5,0,Math.PI*2);x.fill();
 
-if(phase==='accuracy'){ x.fillStyle='#00f';x.fillRect(200,335,accuracy*2.4,8); } } }
+  // player sprite
+  x.fillStyle='#ff0';
+  x.fillRect(80,250,12,12);
 
-function loop(){update();draw();requestAnimationFrame(loop);}loop(); </script>
+  // rival sprite
+  x.fillStyle='#f00';
+  x.fillRect(200,250,12,12);
 
+  x.restore();
+
+  // HUD
+  x.fillStyle='#fff';
+  x.fillText('WIND '+wind.speed.toFixed(2),10,20);
+  x.fillText('DIST '+Math.floor(ball.x-100)+' m',500,20);
+
+  // power bar
+  x.fillStyle='#000';x.fillRect(200,320,240,10);
+  x.fillStyle='#f00';x.fillRect(200,320,power*2.4,10);
+  if(phase==='accuracy'){
+   x.fillStyle='#00f';x.fillRect(200,335,accuracy*2.4,8);
+  }
+
+  // CUT-IN EFFECT
+  if(showCutin){
+   x.fillStyle='rgba(255,255,255,0.8)';
+   x.fillRect(0,0,640,360);
+   portrait(chars.player,260,140);
+   x.fillStyle='#000';
+   x.fillText('SPIRIT DRIVE!!!',240,120);
+  }
+ }
+}
+
+function loop(){update();draw();requestAnimationFrame(loop);}loop();
+</script>
 </body>
 </html>
