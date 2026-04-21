@@ -1,0 +1,81 @@
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Super Golf Challenge (SNES-style)</title>
+<style>
+  body { margin:0; background:#0a1f14; color:#e6f2ff; font-family: monospace; text-align:center; }
+  canvas { display:block; margin:16px auto; border:6px solid #111; image-rendering: pixelated; background:#3aa65a; }
+  h1 { font-size:16px; letter-spacing:2px; }
+</style>
+</head>
+<body>
+<h1>SUPER GOLF CHALLENGE // 16-BIT EDITION</h1>
+<canvas id="game" width="640" height="360"></canvas>
+<p id="hint"></p>
+<script>
+const c = document.getElementById('game');
+const ctx = c.getContext('2d');
+const hint = document.getElementById('hint');// ---------- GAME STATE ---------- let state = 'loading'; // loading -> intro -> range -> shot let t = 0;
+
+// ---------- AUDIO ---------- const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC(); function tone(f, d, type='square'){ const o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.value=f; g.gain.value=0.05; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime+d); } function theme(){ const seq=[523,659,784,659,523,392]; let i=0; setInterval(()=>tone(seq[i++%seq.length],0.08),160); } window.addEventListener('click',()=>{ if(ac.state!=='running') ac.resume(); theme(); },{once:true});
+
+// ---------- WIND ---------- let wind = { speed: (Math.random()*2-1)*0.5 };
+
+// ---------- BALL ---------- let ball = { x:80, y:260, vx:0, vy:0 }; let friction = 0.985;
+
+// ---------- POWER BAR ---------- let power = 0; let powerDir = 1; let charging = false;
+
+// ---------- INPUT ---------- c.addEventListener('mousedown',()=>{ if(state==='range'){ charging=true; } });
+
+c.addEventListener('mouseup',()=>{ if(state==='range' && charging){ shoot(); charging=false; } });
+
+function shoot(){ const strength = power/100; ball.vx = strength12; ball.vy = -strength4; tone(220+strength*400,0.1); }
+
+// ---------- LOOP ---------- function loop(){ t++; update(); draw(); requestAnimationFrame(loop); }
+
+function update(){ if(state==='loading' && t>120){ state='intro'; }
+
+if(state==='range'){ if(charging){ power += powerDir2; if(power>=100 || power<=0) powerDir=-1; }
+
+ball.x += ball.vx + wind.speed;
+ball.y += ball.vy;
+ball.vx *= friction;
+ball.vy *= friction;
+
+} }
+
+// ---------- DRAW ---------- function draw(){ ctx.clearRect(0,0,c.width,c.height);
+
+if(state==='loading'){ ctx.fillStyle='#000'; ctx.fillRect(0,0,c.width,c.height); ctx.fillStyle='#0f0'; ctx.fillText('LOADING... '+Math.floor(t/2)+'%',260,180); return; }
+
+if(state==='intro'){ ctx.fillStyle='#123'; ctx.fillRect(0,0,c.width,c.height); ctx.fillStyle='#fff'; ctx.fillText('OLD PRO: "HEY KID... STEP IN FOR ME"',140,160); ctx.fillText('CLICK TO ACCEPT',240,200); hint.innerText=''; c.onclick=()=>{ state='range'; c.onclick=null; }; return; }
+
+if(state==='range'){ hint.innerText='Hold mouse to build power, release to swing';
+
+// sky
+ctx.fillStyle='#6ec6ff'; ctx.fillRect(0,0,c.width,120);
+// ground
+ctx.fillStyle='#3aa65a'; ctx.fillRect(0,120,c.width,240);
+
+// wind indicator
+ctx.fillStyle='#fff';
+ctx.fillText('WIND: '+wind.speed.toFixed(2),10,20);
+
+// ball
+ctx.fillStyle='#fff';
+ctx.beginPath(); ctx.arc(ball.x, ball.y,5,0,Math.PI*2); ctx.fill();
+
+// power bar
+ctx.fillStyle='#000'; ctx.fillRect(200,320,240,10);
+ctx.fillStyle='#ff0'; ctx.fillRect(200,320,power*2.4,10);
+
+// distance
+ctx.fillStyle='#fff';
+ctx.fillText('DIST: '+Math.floor(ball.x-80)+' m',480,20);
+
+} }
+
+loop(); </script>
+
+</body>
+</html>
