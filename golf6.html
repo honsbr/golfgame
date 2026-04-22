@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dog Piss Deluxe</title>
+<style>
+  body { margin:0; background:#111; overflow:hidden; }
+  canvas { display:block; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+// --- GAME STATE ---
+let state = "title";
+let progress = 0;
+let cleanerDist = 1; // 1 = far, 0 = caught
+let cleanerSpeed = 0.005;
+let introTimer = 0;
+
+// --- INPUT ---
+function tap() {
+  if (state === "title") {
+    state = "intro";
+    introTimer = 0;
+  } 
+  else if (state === "approach") {
+    state = "action";
+  } 
+  else if (state === "action") {
+    progress += 8; // mash power
+  } 
+  else if (state === "result") {
+    reset();
+  }
+}
+
+window.addEventListener("touchstart", tap);
+window.addEventListener("mousedown", tap);
+
+// --- RESET ---
+function reset() {
+  state = "title";
+  progress = 0;
+  cleanerDist = 1;
+  cleanerSpeed += 0.0005; // slight difficulty increase
+}
+
+// --- LOOP ---
+function update() {
+  if (state === "intro") {
+    introTimer++;
+    if (introTimer > 60) state = "approach";
+  }
+
+  if (state === "action") {
+    cleanerDist -= cleanerSpeed;
+
+    if (progress >= 100) {
+      state = "result";
+      result = "win";
+    }
+
+    if (cleanerDist <= 0) {
+      state = "result";
+      result = "fail";
+    }
+  }
+}
+
+let result = "";
+
+// --- DRAW ---
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+
+  if (state === "title") {
+    ctx.font = "40px sans-serif";
+    ctx.fillText("DOG PISS DELUXE", canvas.width/2, canvas.height/2);
+    ctx.font = "20px sans-serif";
+    ctx.fillText("TAP TO START", canvas.width/2, canvas.height/2 + 40);
+  }
+
+  if (state === "intro") {
+    ctx.font = "30px sans-serif";
+    ctx.fillText("🐕 ... 🚶‍♂️", canvas.width/2, canvas.height/2);
+    ctx.fillText("👁 TARGET LOCK", canvas.width/2, canvas.height/2 + 50);
+  }
+
+  if (state === "approach") {
+    ctx.font = "40px sans-serif";
+    ctx.fillText("GO!", canvas.width/2, canvas.height/2);
+  }
+
+  if (state === "action") {
+    // Pee bar
+    ctx.fillStyle = "gray";
+    ctx.fillRect(50, canvas.height - 100, canvas.width - 100, 30);
+
+    ctx.fillStyle = "yellow";
+    ctx.fillRect(50, canvas.height - 100, (canvas.width - 100) * (progress/100), 30);
+
+    // Cleaner indicator
+    ctx.fillStyle = "red";
+    let x = canvas.width * cleanerDist;
+    ctx.fillRect(x, canvas.height/2, 40, 40);
+
+    ctx.fillStyle = "white";
+    ctx.font = "30px sans-serif";
+    ctx.fillText("PEE!", canvas.width/2, 80);
+  }
+
+  if (state === "result") {
+    ctx.font = "40px sans-serif";
+    ctx.fillText(result === "win" ? "ESCAPED!" : "CAUGHT!", canvas.width/2, canvas.height/2);
+    ctx.font = "20px sans-serif";
+    ctx.fillText("TAP TO RESTART", canvas.width/2, canvas.height/2 + 40);
+  }
+}
+
+// --- MAIN LOOP ---
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
