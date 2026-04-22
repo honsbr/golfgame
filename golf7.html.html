@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dog Piss Deluxe</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100%; height:100%; background:#111;
+  overflow:hidden; touch-action:none;
+  user-select:none; -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+canvas {
+  display:block; position:fixed;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  touch-action:none;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// ═══════════════════════════════════════════════════════
+//  DOG PISS DELUXE  v3  —  Asset-driven landscape game
+// ═══════════════════════════════════════════════════════
+
+const canvas = document.getElementById('c');
+const g = canvas.getContext('2d');
+
+// Logical canvas size (landscape 16:9)
+const LW = 800, LH = 450;
+
+function resize() {
+  const s = Math.min(window.innerWidth / LW, window.innerHeight / LH);
+  canvas.width  = Math.round(LW * s);
+  canvas.height = Math.round(LH * s);
+  canvas.style.width  = canvas.width  + 'px';
+  canvas.style.height = canvas.height + 'px';
+}
+resize();
+window.addEventListener('resize', resize);
+
+// All drawing is done in logical coords, then the canvas is scaled
+function setupCtx() {
+  const s = canvas.width / LW;
+  g.setTransform(s, 0, 0, s, 0, 0);
+}
+
+// ─── ASSET LOADER ──────────────────────────────────────
+// Images sit alongside the HTML file. Put all PNGs in same folder.
+const ASSETS = {
+  title_screen:    'title_screen_png.PNG',
+  screen_win:      'screen_win_png.png',
+  screen_caught:   'screen_caught_png.PNG',
+  official_walk:   'official_walk_png.PNG',
+  official_caught: 'official_caught_png.PNG',
+  hydrant:         'hydrant.png',
+  dog_run:         'dog_run_png.PNG',
+  dog_pee:         'dog_pee_png.PNG',
+  dog_idle:        'dog_idle_png.PNG',
+  dog_idle1:       'dog_idle1_png.PNG',
+  dog_eyes:        'dog_eyes_png.PNG',
+  bg_street:       'bg_street_png.png',
+};
+
+const imgs = {};
+let loadedCount = 0;
+const totalAssets = Object.keys(ASSETS).length;
+
+function loadAssets(cb) {
+  Object.entries(ASSETS).forEach(([key, src]) => {
+    const img = new Image();
+    img.onload  = () => { loadedCount++; if (loadedCount === totalAssets) cb(); };
+    img.onerror = () => { loadedCount++; console.warn('Missing:', src); if (loadedCount === totalAssets) cb(); };
+    img.src = src;
+    imgs[key] = img;
+  });
+}
+
+// ─── STATES ────────────────────────────────────────────
+const S = {
+  LOADING:0, TITLE:1,
+  CIN_EYES:2, CIN_HYDRANT:3, CIN_WALK:4, CIN_PEENOW:5,
+  PEE:6, WIN:7, LOSE:8
+};
+let state = S.LOADING;
+let t = 0, dt = 0, lastTs = 0;
+let diff = 1.0;
+
+// ─── GAME VARS ─────────────────────────────────────────
+let pissMeter   = 0;       // 0–100
+let cleanerX    = LW + 80; // warden screen X
+let dogWalkX    = -120;    // for walk cinematic
+let escapeX     = 0;       // for win sequence
+let resultTimer = 0;
+let shakeAmt    = 0;
+let pissParticles = [];
+let legPhase    = 0;
+
+// Positions (logical)
+const DOG_PEE_X  = 148;  // dog left-edge when peeing
+const DOG_PEE_Y  = 188;  // dog top-edge when peeing (drawn ~180px tall)
+const HYDRANT_X  = 340;  // hydrant left edge
+const HYDRANT_Y  = 170;  // hydrant top
+const WARDEN_ARRIVE_X = 490; // warden right-edge when he "catches"
+const WARDEN_START_X  = LW + 80;
+// Warden travel distance / 8 seconds at diff=1
+const WARDEN_SPEED_BASE = (WARDEN_START_X - WARDEN_ARRIVE_X) / 8; // ~61 px/s
+
+// ─── INPUT ─────────────────────────────────────────────
+canvas.addEventListener('pointerdown', e => { e.preventDefault(); onTap(); });
+
+function onTap() {
+  if (state === S.LOADING) return;
+  if (state === S.TITLE)   { setState(S.CIN_EYES); return; }
+  if (state >= S.CIN_EYES && state <= S.CIN_PEENOW) { skipToGame(); return; }
+  if (state === S.PEE)     { doPeeTap(); return; }
+  if ((state === S.WIN || state === S.LOSE) && resultTimer > 0.5) { restartGame(); }
+}
+
+// ─── STATE HELPERS ─────────────────────────────────────
+function setState(s) { state = s; t = 0; }
+
+function skipToGame() {
+  pissMeter = 0; pissParticles = [];
+  cleanerX = WARDEN_START_X;
+  dogWalkX = DOG_PEE_X;
+  setState(S.PEE);
+}
+
+function doPeeTap() {
+  pissMeter = Math.min(100, pissMeter + 11);
+  shakeAmt = 0.08;
+  spawnPissParticles();
+  if (pissMeter >= 100) triggerWin();
+}
+
+function spawnPissParticles() {
+  for (let i = 0; i < 4; i++) {
+    pissParticles.push({
+      x: DOG_PEE_X + 145, y: DOG_PEE_Y + 100,
+      vx: 5 + Math.random() * 5,
+      vy: -3 + Math.random() * 5,
+      life: 0.3 + Math.random() * 0.25,
+      age: 0, r: 3 + Math.random() * 3
+    });
+  }
+}
+
+function triggerWin() {
+  escapeX = 120;
+  resultTimer = 0;
+  setState(S.WIN);
+  diff = Math.min(diff + 0.15, 3.5);
+}
+
+function triggerLose() {
+  resultTimer = 0;
+  setState(S.LOSE);
+}
+
+function restartGame() {
+  pissMeter = 0; pissParticles = [];
+  dogWalkX = -120;
+  setState(S.TITLE);
+}
+
+// ─── UPDATE ────────────────────────────────────────────
+function update() {
+  legPhase += dt * 9;
+
+  if (state === S.CIN_EYES    && t > 1.5) setState(S.CIN_HYDRANT);
+  if (state === S.CIN_HYDRANT && t > 1.3) { dogWalkX = -120; setState(S.CIN_WALK); }
+  if (state === S.CIN_WALK) {
+    dogWalkX = Math.min(DOG_PEE_X, dogWalkX + 220 * dt);
+    if (t > 1.8) setState(S.CIN_PEENOW);
+  }
+  if (state === S.CIN_PEENOW && t > 1.1) {
+    pissMeter = 0; pissParticles = []; cleanerX = WARDEN_START_X;
+    setState(S.PEE);
+  }
+
+  if (state === S.PEE) {
+    cleanerX -= WARDEN_SPEED_BASE * diff * dt;
+    if (cleanerX <= WARDEN_ARRIVE_X) triggerLose();
+    // particles
+    for (let i = pissParticles.length - 1; i >= 0; i--) {
+      const p = pissParticles[i];
+      p.age += dt; p.x += p.vx * dt * 55; p.y += p.vy * dt * 55; p.vy += 8 * dt;
+      if (p.age >= p.life) pissParticles.splice(i, 1);
+    }
+    if (shakeAmt > 0) shakeAmt -= dt;
+  }
+
+  if (state === S.WIN)  { resultTimer += dt; escapeX -= 320 * dt; }
+  if (state === S.LOSE) { resultTimer += dt; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAW HELPERS
+// ═══════════════════════════════════════════════════════
+
+// Draw image stretched to exact rect
+function di(key, x, y, w, h, flipX) {
+  const img = imgs[key];
+  if (!img || !img.naturalWidth) return;
+  g.save();
+  if (flipX) {
+    g.translate(x + w, y);
+    g.scale(-1, 1);
+    g.drawImage(img, 0, 0, w, h);
+  } else {
+    g.drawImage(img, x, y, w, h);
+  }
+  g.restore();
+}
+
+// Draw image centred on cx,cy with given width (height auto)
+function diCentre(key, cx, cy, w, flipX) {
+  const img = imgs[key];
+  if (!img || !img.naturalWidth) return;
+  const h = (img.naturalHeight / img.naturalWidth) * w;
+  di(key, cx - w/2, cy - h/2, w, h, flipX);
+}
+
+// Bob/float offset
+function bob(amp, speed) { return Math.sin(t * speed) * amp; }
+
+// Big Impact-style text
+function bigLabel(txt, x, y, fillCol, strokeCol, size) {
+  g.save();
+  g.textAlign = 'center';
+  g.font = `bold ${size||72}px Impact, Arial Black, sans-serif`;
+  g.lineWidth = 9;
+  g.strokeStyle = strokeCol || '#000';
+  g.strokeText(txt, x, y);
+  g.fillStyle = fillCol || '#FFD700';
+  g.fillText(txt, x, y);
+  g.restore();
+}
+
+// Piss stream (canvas-drawn arc from dog mouth to hydrant)
+function drawPissStream() {
+  if (pissMeter <= 0) return;
+  const pct = pissMeter / 100;
+  const sx = DOG_PEE_X + 152, sy = DOG_PEE_Y + 98;
+  const ex = HYDRANT_X + 2,   ey = HYDRANT_Y + 90;
+  const cx = (sx + ex) / 2 + 10, cy = (sy + ey) / 2 + 18;
+
+  g.save();
+  g.shadowColor = '#FFD700'; g.shadowBlur = 12;
+  g.strokeStyle = `rgba(255,210,0,${0.75 + pct*0.2})`;
+  g.lineWidth = 5 + pct * 5;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(sx, sy);
+  g.quadraticCurveTo(cx, cy, ex, ey);
+  g.stroke();
+  // Bright inner line
+  g.strokeStyle = `rgba(255,255,180,0.5)`;
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(sx, sy);
+  g.quadraticCurveTo(cx, cy, ex, ey);
+  g.stroke();
+  g.shadowBlur = 0;
+
+  // Puddle
+  const pr = 12 + pct * 30;
+  g.fillStyle = 'rgba(255,200,0,0.4)';
+  g.beginPath(); g.ellipse(HYDRANT_X + 20, HYDRANT_Y + 110, pr, pr * 0.35, 0, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+
+// Piss particles
+function drawParticles() {
+  g.save();
+  g.shadowColor = '#FFD700'; g.shadowBlur = 6;
+  pissParticles.forEach(p => {
+    g.globalAlpha = Math.max(0, 1 - p.age / p.life) * 0.85;
+    g.fillStyle = '#FFD700';
+    g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
+  });
+  g.globalAlpha = 1; g.shadowBlur = 0;
+  g.restore();
+}
+
+// Piss meter bar
+function drawPissMeter() {
+  const bx = 16, by = LH - 62, bw = LW * 0.42, bh = 26;
+  // Label
+  g.save();
+  g.font = 'bold 13px Impact, sans-serif';
+  g.fillStyle = '#FFD700';
+  g.shadowColor = '#000'; g.shadowBlur = 4;
+  g.fillText('PISS METER', bx, by - 7);
+  g.shadowBlur = 0;
+  // Track
+  g.fillStyle = 'rgba(0,0,0,0.65)';
+  g.beginPath(); g.roundRect(bx-3, by-3, bw+6, bh+6, 8); g.fill();
+  g.fillStyle = '#1a0a00';
+  g.beginPath(); g.roundRect(bx, by, bw, bh, 6); g.fill();
+  // Fill
+  const pct = pissMeter / 100;
+  if (pct > 0) {
+    const hue = 45 - pct * 10;
+    g.fillStyle = `hsl(${hue},100%,52%)`;
+    g.beginPath(); g.roundRect(bx, by, bw * pct, bh, 6); g.fill();
+    // Shine
+    g.fillStyle = 'rgba(255,255,255,0.28)';
+    g.beginPath(); g.roundRect(bx, by, bw * pct, bh * 0.45, 4); g.fill();
+  }
+  g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 2;
+  g.beginPath(); g.roundRect(bx, by, bw, bh, 6); g.stroke();
+  g.restore();
+}
+
+// Warden distance bar
+function drawWardenBar() {
+  const pct = Math.max(0, (cleanerX - WARDEN_ARRIVE_X) / (WARDEN_START_X - WARDEN_ARRIVE_X));
+  const bx = 16, by = LH - 96, bw = LW * 0.42, bh = 16;
+  g.save();
+  g.font = '12px Impact, sans-serif';
+  g.fillStyle = '#ff8800'; g.shadowColor='#000'; g.shadowBlur=3;
+  g.fillText('🚨 WARDEN DISTANCE', bx, by - 5);
+  g.shadowBlur = 0;
+  g.fillStyle = 'rgba(0,0,0,0.55)';
+  g.beginPath(); g.roundRect(bx-2,by-2,bw+4,bh+4,5); g.fill();
+  g.fillStyle = '#1a0000';
+  g.beginPath(); g.roundRect(bx,by,bw,bh,4); g.fill();
+  if (pct > 0) {
+    g.fillStyle = pct > 0.5 ? '#44ee44' : pct > 0.25 ? '#ffee00' : '#ff3300';
+    g.beginPath(); g.roundRect(bx,by,bw*pct,bh,4); g.fill();
+  }
+  g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 1.5;
+  g.beginPath(); g.roundRect(bx,by,bw,bh,4); g.stroke();
+  g.restore();
+}
+
+// TAP FAST prompt
+function drawTapPrompt() {
+  const pulse = 0.5 + Math.abs(Math.sin(t * 11)) * 0.5;
+  g.save();
+  g.globalAlpha = pulse;
+  g.textAlign = 'center';
+  g.font = 'bold 20px Impact, sans-serif';
+  g.strokeStyle = '#000'; g.lineWidth = 4;
+  g.strokeText('TAP FAST!  TAP FAST!  TAP FAST!', LW * 0.72, LH - 20);
+  g.fillStyle = '#fff';
+  g.fillText('TAP FAST!  TAP FAST!  TAP FAST!', LW * 0.72, LH - 20);
+  g.restore();
+}
+
+// Tap to replay
+function drawTapReplay(msg) {
+  const pulse = 0.4 + Math.abs(Math.sin(resultTimer * 5)) * 0.6;
+  g.save();
+  g.globalAlpha = pulse;
+  g.textAlign = 'center';
+  g.font = 'bold 22px Impact, sans-serif';
+  g.strokeStyle = '#000'; g.lineWidth = 5;
+  g.strokeText(msg, LW / 2, LH - 18);
+  g.fillStyle = '#fff';
+  g.fillText(msg, LW / 2, LH - 18);
+  g.restore();
+}
+
+// Crosshair overlay for target-lock cinematic
+function drawCrosshair(cx, cy, r) {
+  g.save();
+  g.strokeStyle = 'rgba(255,255,255,0.92)';
+  g.lineWidth = 3;
+  g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+  const arms = [[-r-16,0,-r+10,0],[r-10,0,r+16,0],[0,-r-16,0,-r+10],[0,r-10,0,r+16]];
+  arms.forEach(([x1,y1,x2,y2]) => {
+    g.beginPath(); g.moveTo(cx+x1,cy+y1); g.lineTo(cx+x2,cy+y2); g.stroke();
+  });
+  // Corner brackets
+  const d = r * 0.65;
+  [[cx-d,cy-d,1,1],[cx+d,cy-d,-1,1],[cx-d,cy+d,1,-1],[cx+d,cy+d,-1,-1]].forEach(([bx,by,sx,sy]) => {
+    g.beginPath();
+    g.moveTo(bx+sx*18,by); g.lineTo(bx,by); g.lineTo(bx,by+sy*18);
+    g.stroke();
+  });
+  g.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER STATES
+// ═══════════════════════════════════════════════════════
+
+function render() {
+  g.clearRect(0, 0, LW, LH);
+
+  if (state === S.LOADING) {
+    g.fillStyle = '#111'; g.fillRect(0,0,LW,LH);
+    g.fillStyle = '#FFD700'; g.textAlign='center';
+    g.font = 'bold 22px Impact, sans-serif';
+    g.fillText('LOADING...', LW/2, LH/2);
+    g.textAlign='left';
+    return;
+  }
+
+  if (state === S.TITLE) renderTitle();
+  else if (state === S.CIN_EYES)    renderCinEyes();
+  else if (state === S.CIN_HYDRANT) renderCinHydrant();
+  else if (state === S.CIN_WALK)    renderCinWalk();
+  else if (state === S.CIN_PEENOW)  renderCinPeeNow();
+  else if (state === S.PEE)         renderPee();
+  else if (state === S.WIN)         renderWin();
+  else if (state === S.LOSE)        renderLose();
+}
+
+// ── TITLE ──────────────────────────────────────────────
+function renderTitle() {
+  // Full title screen image fills canvas
+  di('title_screen', 0, 0, LW, LH);
+
+  // Blink "TAP TO START" — the image already has it but we pulse it
+  const blink = Math.sin(t * 4) > -0.2;
+  if (!blink) {
+    // Blank out the tap to start text area with a dark overlay
+    g.fillStyle = 'rgba(0,0,0,0.85)';
+    g.fillRect(220, 355, 360, 50);
+  }
+
+  // Difficulty badge
+  if (diff > 1.0) {
+    const lvl = Math.round((diff - 1) / 0.15) + 1;
+    g.save();
+    g.fillStyle = 'rgba(180,0,0,0.82)';
+    g.beginPath(); g.roundRect(LW-140, 8, 132, 36, 8); g.fill();
+    g.font = 'bold 15px Impact, sans-serif';
+    g.fillStyle = '#fff'; g.textAlign = 'center';
+    g.fillText(`🔥 LEVEL ${lvl}`, LW - 74, 31);
+    g.textAlign = 'left';
+    g.restore();
+  }
+}
+
+// ── CINEMATIC: EYES ────────────────────────────────────
+function renderCinEyes() {
+  // dog_eyes image fills screen with a zoom effect
+  const zoom = 1 + t * 0.35;
+  g.save();
+  g.translate(LW/2, LH/2);
+  g.scale(zoom, zoom);
+  di('dog_eyes', -LW/2, -LH/2, LW, LH);
+  g.restore();
+
+  // Dark vignette edges
+  const vig = g.createRadialGradient(LW/2,LH/2,LH*0.25,LW/2,LH/2,LH*0.85);
+  vig.addColorStop(0,'transparent'); vig.addColorStop(1,'rgba(0,0,0,0.65)');
+  g.fillStyle = vig; g.fillRect(0,0,LW,LH);
+
+  // "TARGET LOCKED!" label (fades in from top)
+  const a = Math.min(1, t / 0.5);
+  g.globalAlpha = a;
+  // Black bar top
+  g.fillStyle = '#111'; g.fillRect(0,0,LW,46);
+  g.textAlign = 'center';
+  g.font = 'bold 30px Impact, sans-serif';
+  g.strokeStyle = '#000'; g.lineWidth = 5; g.strokeText('TARGET LOCKED!', LW/2, 36);
+  g.fillStyle = '#ff3333'; g.fillText('TARGET LOCKED!', LW/2, 36);
+  g.globalAlpha = 1; g.textAlign='left';
+
+  drawSkipHint();
+}
+
+// ── CINEMATIC: HYDRANT ZOOM ─────────────────────────────
+function renderCinHydrant() {
+  // Street bg
+  di('bg_street', 0, 0, LW, LH);
+  // Darken
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0,0,LW,LH);
+
+  // Hydrant zoomed in to centre
+  const zoom = Math.min(1 + t * 2.2, 5);
+  const hcx = HYDRANT_X + 30, hcy = HYDRANT_Y + 55;
+  g.save();
+  g.translate(LW/2, LH/2);
+  g.scale(zoom, zoom);
+  g.translate(-(hcx), -(hcy));
+  di('hydrant', HYDRANT_X, HYDRANT_Y, 80, 120);
+  g.restore();
+
+  // Crosshair
+  const r = Math.max(28, 90 - t * 45);
+  drawCrosshair(LW/2, LH/2, r);
+
+  // Vignette
+  const vig = g.createRadialGradient(LW/2,LH/2,80,LW/2,LH/2,LH);
+  vig.addColorStop(0,'transparent'); vig.addColorStop(1,'rgba(0,0,0,0.82)');
+  g.fillStyle=vig; g.fillRect(0,0,LW,LH);
+
+  drawSkipHint();
+}
+
+// ── CINEMATIC: DOG WALK ─────────────────────────────────
+function renderCinWalk() {
+  di('bg_street', 0, 0, LW, LH);
+  di('hydrant', HYDRANT_X, HYDRANT_Y, 80, 120);
+
+  // Dashed arrow from dog → hydrant
+  if (dogWalkX < DOG_PEE_X - 30) {
+    g.save();
+    g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2.5; g.setLineDash([12,8]);
+    g.beginPath();
+    g.moveTo(dogWalkX + 130, DOG_PEE_Y + 80);
+    g.lineTo(HYDRANT_X - 10, HYDRANT_Y + 60);
+    g.stroke(); g.setLineDash([]);
+    // Arrowhead
+    g.fillStyle = '#fff';
+    g.save(); g.translate(HYDRANT_X-6, HYDRANT_Y+56);
+    g.rotate(-0.5); g.beginPath(); g.moveTo(0,0); g.lineTo(-14,8); g.lineTo(-12,-8); g.fill();
+    g.restore(); g.restore();
+  }
+
+  // Dog (idle1 walking — bob up/down slightly)
+  const dogH = 155;
+  const dogW = (imgs.dog_idle1.naturalWidth / imgs.dog_idle1.naturalHeight) * dogH;
+  const walkBob = Math.sin(legPhase) * 4;
+  di('dog_idle1', dogWalkX, DOG_PEE_Y + 40 + walkBob, dogW, dogH);
+
+  // "GO!" prompt
+  g.save();
+  const ga = Math.min(1, t / 0.3);
+  g.globalAlpha = ga;
+  bigLabel('GO!', LW * 0.74, 140, '#FFD700', '#222', 76);
+  g.textAlign='center'; g.font='bold 22px Impact,sans-serif';
+  g.strokeStyle='#000'; g.lineWidth=4; g.strokeText('APPROACH THE HYDRANT', LW*0.74, 180);
+  g.fillStyle='#fff'; g.fillText('APPROACH THE HYDRANT', LW*0.74, 180);
+  g.restore();
+
+  drawSkipHint();
+}
+
+// ── CINEMATIC: PEE NOW title card ──────────────────────
+function renderCinPeeNow() {
+  di('bg_street', 0, 0, LW, LH);
+  di('hydrant', HYDRANT_X, HYDRANT_Y, 80, 120);
+
+  // Dog at pee position
+  const dogH = 200;
+  const dogW = (imgs.dog_pee.naturalWidth / imgs.dog_pee.naturalHeight) * dogH;
+  di('dog_pee', DOG_PEE_X, DOG_PEE_Y, dogW, dogH);
+
+  // Flash white overlay (fades out)
+  const flashA = Math.max(0, 0.85 - t * 2.5);
+  g.fillStyle = `rgba(255,255,200,${flashA})`; g.fillRect(0,0,LW,LH);
+
+  // PEE NOW! slams in
+  const popScale = 1 + Math.max(0, 0.5 - t) * 0.9;
+  g.save();
+  g.translate(LW * 0.67, LH * 0.34);
+  g.scale(popScale, popScale);
+  g.textAlign = 'center';
+  g.font = 'bold 84px Impact, Arial Black, sans-serif';
+  g.lineWidth = 12; g.strokeStyle = '#aa3300';
+  g.strokeText('PEE NOW!', 0, 0);
+  g.fillStyle = '#FFD700'; g.fillText('PEE NOW!', 0, 0);
+  g.restore();
+
+  drawSkipHint();
+}
+
+// ── PEE PHASE ──────────────────────────────────────────
+function renderPee() {
+  // Shake
+  g.save();
+  if (shakeAmt > 0) g.translate((Math.random()-.5)*3, (Math.random()-.5)*3);
+
+  di('bg_street', 0, 0, LW, LH);
+  di('hydrant', HYDRANT_X, HYDRANT_Y, 80, 120);
+
+  // Piss stream (behind dog)
+  drawPissStream();
+  drawParticles();
+
+  // Dog peeing
+  const dogH = 200;
+  const dogW = (imgs.dog_pee.naturalWidth / imgs.dog_pee.naturalHeight) * dogH;
+  di('dog_pee', DOG_PEE_X, DOG_PEE_Y, dogW, dogH);
+
+  // Warden walks in from right
+  const wImg = imgs.official_walk;
+  if (wImg && wImg.naturalWidth) {
+    const wh = 200;
+    const ww = (wImg.naturalWidth / wImg.naturalHeight) * wh;
+    // Warden faces left (toward dog) — flip horizontally
+    di('official_walk', cleanerX - ww, DOG_PEE_Y + 10, ww, wh, false);
+  }
+
+  // HUD
+  drawWardenBar();
+  drawPissMeter();
+  drawTapPrompt();
+
+  // "PEE!" label top left
+  g.save();
+  g.font = 'bold 38px Impact,sans-serif'; g.textAlign='left';
+  g.strokeStyle='#000'; g.lineWidth=5; g.strokeText('PEE!', 16, 46);
+  g.fillStyle='#ff9900'; g.fillText('PEE!', 16, 46);
+  g.restore();
+
+  g.restore();
+}
+
+// ── WIN ────────────────────────────────────────────────
+function renderWin() {
+  // Full win scene image
+  di('screen_win', 0, 0, LW, LH);
+
+  // Dog runs across screen (draw on top of the static image for extra motion)
+  // Use the run asset moving left to right or right to left
+  const rImg = imgs.dog_run;
+  if (rImg && rImg.naturalWidth) {
+    const rh = 180;
+    const rw = (rImg.naturalWidth / rImg.naturalHeight) * rh;
+    // Dog escaping left — flip image so it faces left
+    const rx = Math.max(-rw - 20, escapeX);
+    if (rx > -rw) {
+      di('dog_run', rx, DOG_PEE_Y + 30, rw, rh, true);
+    }
+  }
+
+  if (resultTimer > 0.5) drawTapReplay('TAP TO PLAY AGAIN');
+}
+
+// ── LOSE ───────────────────────────────────────────────
+function renderLose() {
+  // Full caught scene image
+  di('screen_caught', 0, 0, LW, LH);
+  if (resultTimer > 0.5) drawTapReplay('TAP TO TRY AGAIN');
+}
+
+// ── SKIP HINT ──────────────────────────────────────────
+function drawSkipHint() {
+  g.save();
+  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.font = '12px Impact, sans-serif';
+  g.textAlign = 'center';
+  g.fillText('TAP ANYWHERE TO SKIP', LW/2, LH - 10);
+  g.textAlign = 'left';
+  g.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════
+function loop(ts) {
+  dt = Math.min((ts - lastTs) / 1000, 0.05);
+  lastTs = ts;
+  t += dt;
+  update();
+  setupCtx();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ─── BOOT ──────────────────────────────────────────────
+loadAssets(() => {
+  setState(S.TITLE);
+  requestAnimationFrame(loop);
+});
+
+// Start loop immediately to show loading screen
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
