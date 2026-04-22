@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Golf</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; overflow:hidden; font-family:'Georgia', serif; touch-action:none; }
+  #c { display:block; width:100vw; height:100vh; }
+
+/* ── HUD ── */
+#hud {
+position:fixed; top:0; left:0; right:0;
+display:flex; justify-content:space-between; align-items:flex-start;
+padding:12px 16px; pointer-events:none; z-index:10;
+}
+.hud-pill {
+background:rgba(0,0,0,0.55); backdrop-filter:blur(6px);
+border:1px solid rgba(255,255,255,0.15);
+border-radius:20px; padding:6px 14px;
+color:#fff; font-size:13px; line-height:1.5;
+text-shadow:0 1px 3px rgba(0,0,0,0.8);
+}
+.hud-pill b { color:#a8e063; }
+#aim-hint {
+position:fixed; bottom:220px; left:50%; transform:translateX(-50%);
+color:rgba(255,255,255,0.7); font-size:13px; text-align:center;
+pointer-events:none; z-index:10; text-shadow:0 1px 4px #000;
+transition:opacity 0.4s;
+}
+
+/* ── SWING UI ── */
+#swing-ui {
+position:fixed; bottom:0; left:0; right:0;
+display:none; flex-direction:column; align-items:center;
+padding:16px 20px 28px; gap:10px;
+background:linear-gradient(transparent, rgba(0,0,0,0.72));
+z-index:20; pointer-events:none;
+}
+.meter-row {
+display:flex; align-items:center; gap:10px; width:100%; max-width:360px;
+}
+.meter-label {
+color:#fff; font-size:11px; width:64px; text-align:right;
+text-transform:uppercase; letter-spacing:0.5px; opacity:0.85;
+}
+.meter-track {
+flex:1; height:18px; background:rgba(255,255,255,0.12);
+border:1px solid rgba(255,255,255,0.25); border-radius:3px;
+overflow:hidden; position:relative;
+}
+#power-fill {
+height:100%; width:0%;
+background:linear-gradient(90deg,#56ab2f,#f9d423,#ff4e50);
+transition:none; border-radius:2px;
+}
+#acc-cursor {
+position:absolute; top:0; width:5px; height:100%;
+background:#fff; left:50%; transform:translateX(-50%);
+box-shadow:0 0 6px #fff; border-radius:2px;
+}
+#acc-zone {
+position:absolute; top:0; height:100%;
+background:rgba(100,255,100,0.35); width:22%; left:39%;
+}
+.meter-val { color:#fff; font-size:11px; width:36px; opacity:0.7; }
+
+/* TAP BUTTON */
+#tap-btn {
+position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+width:90px; height:90px; border-radius:50%;
+background:radial-gradient(circle at 35% 35%, rgba(255,255,255,0.25), rgba(255,255,255,0.05));
+border:2px solid rgba(255,255,255,0.5);
+color:#fff; font-size:13px; font-family:Georgia,serif;
+cursor:pointer; z-index:30; display:none;
+align-items:center; justify-content:center; text-align:center;
+user-select:none; -webkit-tap-highlight-color:transparent;
+box-shadow:0 4px 20px rgba(0,0,0,0.5);
+transition:transform 0.08s, background 0.08s;
+line-height:1.3;
+}
+#tap-btn:active { transform:translateX(-50%) scale(0.92); }
+
+/* AIM ARROWS */
+#aim-btns {
+position:fixed; bottom:28px; left:0; right:0;
+display:none; justify-content:space-between; align-items:center;
+padding:0 20px; z-index:30; pointer-events:none;
+}
+.aim-btn {
+width:64px; height:64px; border-radius:50%;
+background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.3);
+color:#fff; font-size:22px; cursor:pointer;
+display:flex; align-items:center; justify-content:center;
+pointer-events:all; user-select:none;
+-webkit-tap-highlight-color:transparent;
+}
+
+/* VIEW TOGGLE */
+#view-btn {
+position:fixed; top:12px; right:16px;
+background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.3);
+color:#fff; font-size:12px; padding:7px 12px; border-radius:16px;
+cursor:pointer; z-index:30; font-family:Georgia,serif;
+-webkit-tap-highlight-color:transparent;
+}
+
+/* RESULT OVERLAY */
+#result {
+position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+background:rgba(0,0,0,0.75); backdrop-filter:blur(8px);
+border:1px solid rgba(255,255,255,0.2); border-radius:16px;
+padding:24px 36px; text-align:center; color:#fff;
+display:none; z-index:40; min-width:220px;
+}
+#result h2 { font-size:22px; color:#a8e063; margin-bottom:8px; }
+#result p { font-size:14px; opacity:0.8; margin-bottom:16px; }
+#result button {
+background:#a8e063; color:#1a2a00; border:none;
+padding:10px 24px; border-radius:20px; font-size:14px;
+cursor:pointer; font-family:Georgia,serif; font-weight:bold;
+}
+
+/* HOLE IN ONE etc */
+#banner {
+position:fixed; top:30%; left:50%; transform:translate(-50%,-50%);
+font-size:32px; color:#FFD700; font-weight:bold;
+text-shadow:2px 2px 8px #000; display:none; z-index:50;
+pointer-events:none; text-align:center;
+}
+
+/* Score card */
+#scorecard {
+position:fixed; top:12px; left:50%; transform:translateX(-50%);
+background:rgba(0,0,0,0.55); backdrop-filter:blur(6px);
+border:1px solid rgba(255,255,255,0.15); border-radius:16px;
+padding:6px 18px; color:#fff; font-size:13px;
+pointer-events:none; z-index:10; text-align:center;
+}
+</style>
+
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- HUD -->
+
+<div id="hud">
+  <div class="hud-pill" id="info-left">
+    Hole <b id="h-hole">1</b> &nbsp;·&nbsp; Par <b id="h-par">3</b>
+  </div>
+  <div class="hud-pill" id="info-right">
+    <b id="h-dist">—</b> m to pin
+  </div>
+</div>
+<div id="scorecard">Strokes: <b id="h-strokes">0</b></div>
+
+<!-- Aim hint -->
+
+<div id="aim-hint">◀ Aim ▶ &nbsp;·&nbsp; Tap to swing</div>
+
+<!-- Swing meters -->
+
+<div id="swing-ui">
+  <div class="meter-row">
+    <span class="meter-label">Power</span>
+    <div class="meter-track"><div id="power-fill"></div></div>
+    <span class="meter-val" id="power-val">0%</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">Accuracy</span>
+    <div class="meter-track">
+      <div id="acc-zone"></div>
+      <div id="acc-cursor"></div>
+    </div>
+    <span class="meter-val" id="acc-val">—</span>
+  </div>
+</div>
+
+<!-- Aim buttons -->
+
+<div id="aim-btns">
+  <div class="aim-btn" id="btn-left">◀</div>
+  <div style="width:64px"></div>
+  <div class="aim-btn" id="btn-right">▶</div>
+</div>
+
+<!-- Main tap / swing button -->
+
+<button id="tap-btn">TAP<br>TO<br>SWING</button>
+
+<!-- View toggle -->
+
+<button id="view-btn">🔭 View</button>
+
+<!-- Result -->
+
+<div id="result">
+  <h2 id="res-title">Shot!</h2>
+  <p id="res-body"></p>
+  <button id="res-btn">Next Shot</button>
+</div>
+
+<!-- Banner -->
+
+<div id="banner"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  GOLF GAME
+// ═══════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x87CEEB);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.012);
+
+// ─── RESIZE ─────────────────────────────────────────────
+function resize() {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  topCam.aspect = window.innerWidth / window.innerHeight;
+  topCam.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+// ─── CAMERAS ─────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 500);
+const topCam = new THREE.OrthographicCamera(-1,1,1,-1, 0.1, 500);
+let useTopView = false;
+
+// ─── LIGHTING ────────────────────────────────────────────
+const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+scene.add(ambient);
+const sun = new THREE.DirectionalLight(0xFFF5E0, 1.1);
+sun.position.set(40, 80, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 300;
+sun.shadow.camera.left = -80;
+sun.shadow.camera.right = 80;
+sun.shadow.camera.top = 80;
+sun.shadow.camera.bottom = -80;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xC8E8FF, 0.3);
+fill.position.set(-20, 30, -30);
+scene.add(fill);
+
+// ─── COURSE BUILDER ──────────────────────────────────────
+// Holes: {tee, hole, par, name}
+const HOLES = [
+  { tee:{x:0,z:0}, hole:{x:0,z:-55}, par:3, name:"Opening Drive", yardage:60 },
+  { tee:{x:0,z:0}, hole:{x:18,z:-80}, par:4, name:"Dog Leg Left", yardage:88 },
+  { tee:{x:0,z:0}, hole:{x:-12,z:-100}, par:4, name:"Long Way Home", yardage:106 },
+];
+let currentHoleIndex = 0;
+let holeObjects = [];
+
+function buildHole(holeDef) {
+  // Remove old hole objects
+  holeObjects.forEach(o => scene.remove(o));
+  holeObjects = [];
+
+  const { tee, hole } = holeDef;
+  const hx = hole.x, hz = hole.z;
+
+  // ── GROUND ──
+  // Main fairway - tessellated plane for slight undulation
+  const fwGeo = new THREE.PlaneGeometry(60, 160, 30, 60);
+  fwGeo.rotateX(-Math.PI/2);
+  // Gentle bumps
+  const pos = fwGeo.attributes.position;
+  for(let i=0; i<pos.count; i++){
+    const x=pos.getX(i), z=pos.getZ(i);
+    const y = Math.sin(x*0.3)*0.15 + Math.cos(z*0.25)*0.1 + Math.sin(x*0.15+z*0.2)*0.08;
+    pos.setY(i, y);
+  }
+  pos.needsUpdate = true;
+  fwGeo.computeVertexNormals();
+
+  const fwMat = new THREE.MeshLambertMaterial({ color: 0x4a9c2e });
+  const fw = new THREE.Mesh(fwGeo, fwMat);
+  fw.position.set(0, 0, -10);
+  fw.receiveShadow = true;
+  scene.add(fw); holeObjects.push(fw);
+
+  // Green (smooth circle area around hole)
+  const greenGeo = new THREE.CircleGeometry(7, 32);
+  greenGeo.rotateX(-Math.PI/2);
+  const greenMat = new THREE.MeshLambertMaterial({ color: 0x3dc45b });
+  const green = new THREE.Mesh(greenGeo, greenMat);
+  green.position.set(hx, 0.01, hz);
+  green.receiveShadow = true;
+  scene.add(green); holeObjects.push(green);
+
+  // Tee box
+  const teeGeo = new THREE.BoxGeometry(4, 0.05, 3);
+  const teeMat = new THREE.MeshLambertMaterial({ color: 0x6fbf40 });
+  const teeBox = new THREE.Mesh(teeGeo, teeMat);
+  teeBox.position.set(tee.x, 0.02, tee.z);
+  scene.add(teeBox); holeObjects.push(teeBox);
+
+  // Rough (wider surrounding ground)
+  const roughGeo = new THREE.PlaneGeometry(200, 280, 2, 2);
+  roughGeo.rotateX(-Math.PI/2);
+  const roughMat = new THREE.MeshLambertMaterial({ color: 0x2e7a1a });
+  const rough = new THREE.Mesh(roughGeo, roughMat);
+  rough.position.set(0, -0.01, -40);
+  rough.receiveShadow = true;
+  scene.add(rough); holeObjects.push(rough);
+
+  // ── HOLE ──
+  const holeGeo = new THREE.CircleGeometry(0.32, 20);
+  holeGeo.rotateX(-Math.PI/2);
+  const holeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+  const holeMesh = new THREE.Mesh(holeGeo, holeMat);
+  holeMesh.position.set(hx, 0.015, hz);
+  scene.add(holeMesh); holeObjects.push(holeMesh);
+
+  // ── FLAG ──
+  const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, 3, 6);
+  const poleMat = new THREE.MeshLambertMaterial({ color: 0xdddddd });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.set(hx, 1.5, hz);
+  scene.add(pole); holeObjects.push(pole);
+
+  const flagGeo = new THREE.PlaneGeometry(1.2, 0.75);
+  const flagMat = new THREE.MeshLambertMaterial({ color:0xFF2222, side:THREE.DoubleSide });
+  const flag = new THREE.Mesh(flagGeo, flagMat);
+  flag.position.set(hx + 0.6, 2.85, hz);
+  scene.add(flag); holeObjects.push(flag);
+
+  // ── TREES ──
+  const treePositions = [
+    [-12,hz*0.3],[-16,hz*0.6],[14,hz*0.4],[18,hz*0.7],
+    [-10,hz*0.8],[12,hz*0.85],[-14,hz*0.15],[15,hz*0.25],
+    [-20,hz*0.5],[20,hz*0.55],
+  ];
+  treePositions.forEach(([tx,tz]) => {
+    addTree(tx, tz);
+  });
+
+  // ── BUNKER ──
+  const bunkerGeo = new THREE.CircleGeometry(3.5, 20);
+  bunkerGeo.rotateX(-Math.PI/2);
+  const bunkerMat = new THREE.MeshLambertMaterial({ color: 0xd4b483 });
+  const bunker = new THREE.Mesh(bunkerGeo, bunkerMat);
+  bunker.position.set(hx+9, 0.01, hz+10);
+  bunker.receiveShadow = true;
+  scene.add(bunker); holeObjects.push(bunker);
+
+  // ── SKYBOX / horizon hills ──
+  addHills();
+
+  // ── HOLE MARKER RING ──
+  const ringGeo = new THREE.RingGeometry(0.45, 0.65, 24);
+  ringGeo.rotateX(-Math.PI/2);
+  const ringMat = new THREE.MeshBasicMaterial({ color:0xffffff, side:THREE.DoubleSide, opacity:0.6, transparent:true });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.set(hx, 0.02, hz);
+  scene.add(ring); holeObjects.push(ring);
+
+  return { hx, hz };
+}
+
+function addTree(x, z) {
+  const trunkGeo = new THREE.CylinderGeometry(0.18, 0.25, 2, 6);
+  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5c3a1e });
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.set(x, 1, z);
+  trunk.castShadow = true;
+  scene.add(trunk); holeObjects.push(trunk);
+
+  const leafColors = [0x2d7a1e, 0x3a9c28, 0x256b18];
+  [2.8, 2.0, 1.1].forEach((h, i) => {
+    const r = 1.8 - i*0.35;
+    const leafGeo = new THREE.ConeGeometry(r, 1.6, 7);
+    const leafMat = new THREE.MeshLambertMaterial({ color: leafColors[i] });
+    const leaf = new THREE.Mesh(leafGeo, leafMat);
+    leaf.position.set(x, h, z);
+    leaf.castShadow = true;
+    scene.add(leaf); holeObjects.push(leaf);
+  });
+}
+
+function addHills() {
+  // Background hill ridge
+  const hillGeo = new THREE.SphereGeometry(80, 12, 8);
+  const hillMat = new THREE.MeshLambertMaterial({ color:0x3a7a20 });
+  const hill1 = new THREE.Mesh(hillGeo, hillMat);
+  hill1.position.set(-70, -72, -160);
+  scene.add(hill1); holeObjects.push(hill1);
+  const hill2 = new THREE.Mesh(hillGeo, hillMat);
+  hill2.position.set(60, -70, -170);
+  scene.add(hill2); holeObjects.push(hill2);
+}
+
+// ─── BALL ─────────────────────────────────────────────────
+const ballGeo = new THREE.SphereGeometry(0.215, 16, 12);
+const ballMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const ball = new THREE.Mesh(ballGeo, ballMat);
+ball.castShadow = true;
+scene.add(ball);
+
+// Ball shadow disc
+const shadowDiscGeo = new THREE.CircleGeometry(0.3, 16);
+shadowDiscGeo.rotateX(-Math.PI/2);
+const shadowDiscMat = new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.35 });
+const shadowDisc = new THREE.Mesh(shadowDiscGeo, shadowDiscMat);
+scene.add(shadowDisc);
+
+// Trajectory line
+const trailMat = new THREE.LineBasicMaterial({ color:0xFFDD44, transparent:true, opacity:0.7 });
+let trailLine = null;
+let trailPoints = [];
+
+function updateTrail() {
+  if(trailLine) { scene.remove(trailLine); trailLine = null; }
+  if(trailPoints.length < 2) return;
+  const geo = new THREE.BufferGeometry().setFromPoints(trailPoints);
+  trailLine = new THREE.Line(geo, trailMat);
+  scene.add(trailLine);
+}
+
+// ─── GOLFER SPRITE ────────────────────────────────────────
+// Simple low-poly golfer
+const golferGroup = new THREE.Group();
+function buildGolfer() {
+  const skinMat = new THREE.MeshLambertMaterial({ color:0xF4C498 });
+  const shirtMat = new THREE.MeshLambertMaterial({ color:0xE8E8E8 });
+  const pantsMat = new THREE.MeshLambertMaterial({ color:0x3a5a8a });
+  const hatMat = new THREE.MeshLambertMaterial({ color:0xcc2200 });
+  const clubMat = new THREE.MeshLambertMaterial({ color:0x888888 });
+
+  // Body
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.15,0.7,8), shirtMat);
+  body.position.y = 0.8;
+  golferGroup.add(body);
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2,10,8), skinMat);
+  head.position.y = 1.45;
+  golferGroup.add(head);
+  // Hat
+  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.04,10), hatMat);
+  hatBrim.position.y = 1.6;
+  golferGroup.add(hatBrim);
+  const hatTop = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.2,0.22,10), hatMat);
+  hatTop.position.y = 1.73;
+  golferGroup.add(hatTop);
+  // Arms
+  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.05,0.5,6), skinMat);
+  armL.position.set(-0.27, 0.9, 0); armL.rotation.z = 0.4;
+  golferGroup.add(armL);
+  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.05,0.5,6), skinMat);
+  armR.position.set(0.27, 0.9, 0); armR.rotation.z = -0.4;
+  golferGroup.add(armR);
+  // Legs
+  const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.07,0.65,7), pantsMat);
+  legL.position.set(-0.1, 0.27, 0);
+  golferGroup.add(legL);
+  const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.07,0.65,7), pantsMat);
+  legR.position.set(0.1, 0.27, 0);
+  golferGroup.add(legR);
+  // Club
+  const clubHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,1.4,5), clubMat);
+  clubHandle.position.set(0.38, 0.8, 0.1); clubHandle.rotation.z = 0.25;
+  golferGroup.add(clubHandle);
+  const clubHead = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.18,0.08), clubMat);
+  clubHead.position.set(0.55, 0.12, 0.1);
+  golferGroup.add(clubHead);
+
+  golferGroup.traverse(m => { if(m.isMesh) m.castShadow = true; });
+}
+buildGolfer();
+scene.add(golferGroup);
+
+// Aim arrow
+const arrowDir = new THREE.ArrowHelper(
+  new THREE.Vector3(0,0,-1),
+  new THREE.Vector3(0,0.1,0),
+  4, 0xFFFFFF, 0.5, 0.4
+);
+golferGroup.add(arrowDir);
+
+// ─── PHYSICS STATE ────────────────────────────────────────
+const G = -12; // gravity m/s²
+let ballState = {
+  pos: new THREE.Vector3(),
+  vel: new THREE.Vector3(),
+  inFlight: false,
+  onGround: true,
+  bounces: 0,
+};
+
+let aimAngle = 0;       // radians
+let swingPhase = 'aim'; // aim | power | accuracy | flight | result
+let power = 0;
+let powerDir = 1;
+let accCursor = 50;
+let accDir = 1;
+const POWER_SPEED = 42;  // % per second
+const ACC_SPEED_BASE = 55;
+let strokes = 0;
+let shotStart = new THREE.Vector3();
+
+let holeDef = null;
+let holePos = new THREE.Vector3();
+
+// ─── INIT HOLE ────────────────────────────────────────────
+function initHole(idx) {
+  currentHoleIndex = idx;
+  const def = HOLES[idx % HOLES.length];
+  holeDef = def;
+  holePos.set(def.hole.x, 0, def.hole.z);
+  buildHole(def);
+
+  // Place ball on tee
+  ball.position.set(def.tee.x, 0.215, def.tee.z);
+  ballState.pos.copy(ball.position);
+  ballState.vel.set(0,0,0);
+  ballState.inFlight = false;
+  ballState.onGround = true;
+  ballState.bounces = 0;
+  trailPoints = [];
+  updateTrail();
+
+  // Golfer on tee
+  golferGroup.position.set(def.tee.x, 0, def.tee.z + 1.0);
+  aimAngle = Math.atan2(def.hole.x - def.tee.x, -(def.hole.z - def.tee.z));
+  golferGroup.rotation.y = aimAngle;
+  arrowDir.setDirection(new THREE.Vector3(Math.sin(aimAngle),0,-Math.cos(aimAngle)).normalize());
+
+  swingPhase = 'aim';
+  power = 0;
+  accCursor = 50;
+  updateUI();
+  positionCamera();
+
+  document.getElementById('h-hole').textContent = idx+1;
+  document.getElementById('h-par').textContent = def.par;
+  document.getElementById('h-strokes').textContent = strokes;
+  updateDist();
+}
+
+function updateDist() {
+  const d = Math.round(ball.position.distanceTo(holePos) * 0.9144); // convert to yards roughly
+  document.getElementById('h-dist').textContent = d > 0 ? d : '—';
+}
+
+// ─── CAMERA ───────────────────────────────────────────────
+let camTarget = new THREE.Vector3();
+let camPos = new THREE.Vector3();
+
+function positionCamera() {
+  const bp = ballState.pos;
+  if(useTopView) {
+    const span = Math.max(30, ball.position.distanceTo(holePos) * 1.4 + 15);
+    topCam.left = -span; topCam.right = span;
+    topCam.top = span * (window.innerHeight/window.innerWidth);
+    topCam.bottom = -span * (window.innerHeight/window.innerWidth);
+    topCam.updateProjectionMatrix();
+    topCam.position.set(bp.x, 120, bp.z);
+    topCam.lookAt(bp.x, 0, bp.z);
+  } else {
+    // Third-person: behind ball in aim direction
+    const behind = new THREE.Vector3(-Math.sin(aimAngle)*6, 3.5, Math.cos(aimAngle)*6);
+    camPos.copy(bp).add(behind);
+    camTarget.copy(bp).add(new THREE.Vector3(Math.sin(aimAngle)*8,0,-Math.cos(aimAngle)*8));
+    camera.position.copy(camPos);
+    camera.lookAt(camTarget);
+  }
+}
+
+function smoothCamera(dt) {
+  if(swingPhase === 'flight') {
+    const bp = ballState.pos;
+    const targetPos = new THREE.Vector3(
+      bp.x - Math.sin(aimAngle)*6,
+      Math.max(bp.y + 2.5, 2.5),
+      bp.z + Math.cos(aimAngle)*6
+    );
+    camera.position.lerp(targetPos, Math.min(1, dt*4));
+    const lookAt = new THREE.Vector3(bp.x, bp.y, bp.z);
+    const cur = new THREE.Vector3();
+    camera.getWorldDirection(cur);
+    const desiredDir = lookAt.clone().sub(camera.position).normalize();
+    cur.lerp(desiredDir, Math.min(1, dt*5));
+    camera.lookAt(camera.position.clone().add(cur.multiplyScalar(10)));
+  }
+}
+
+// ─── SWING MECHANICS ──────────────────────────────────────
+function startSwing() {
+  if(swingPhase !== 'aim') return;
+  swingPhase = 'power';
+  power = 0; powerDir = 1;
+  document.getElementById('swing-ui').style.display = 'flex';
+  document.getElementById('tap-btn').textContent = 'SET\nPOWER';
+  document.getElementById('aim-btns').style.display = 'none';
+  document.getElementById('aim-hint').style.opacity = '0';
+}
+
+function confirmPower() {
+  if(swingPhase !== 'power') return;
+  swingPhase = 'accuracy';
+  accCursor = 0; accDir = 1;
+  document.getElementById('tap-btn').textContent = 'TIME\nIT!';
+}
+
+function confirmAccuracy() {
+  if(swingPhase !== 'accuracy') return;
+  launchBall();
+}
+
+function launchBall() {
+  const accScore = 1 - Math.abs(accCursor - 50) / 50;
+  const maxSpeed = 3.5 + power * 0.32;  // ~max ~35 m/s at full power
+  const speed = maxSpeed * (0.6 + accScore*0.4);
+  const devAngle = (1 - accScore) * (Math.random()-0.5) * 0.55;
+
+  const totalAngle = aimAngle + devAngle;
+  const vx = Math.sin(totalAngle) * speed;
+  const vz = -Math.cos(totalAngle) * speed;
+  const vy = speed * 0.55;
+
+  ballState.vel.set(vx, vy, vz);
+  ballState.inFlight = true;
+  ballState.onGround = false;
+  ballState.bounces = 0;
+  shotStart.copy(ball.position);
+  trailPoints = [ball.position.clone()];
+
+  swingPhase = 'flight';
+  strokes++;
+  document.getElementById('h-strokes').textContent = strokes;
+  document.getElementById('swing-ui').style.display = 'none';
+  document.getElementById('tap-btn').style.display = 'none';
+  document.getElementById('aim-btns').style.display = 'none';
+  document.getElementById('aim-hint').style.opacity = '0';
+
+  // Golfer swing animation hint
+  golferGroup.rotation.y = aimAngle;
+}
+
+// ─── PHYSICS UPDATE ───────────────────────────────────────
+function updatePhysics(dt) {
+  if(!ballState.inFlight) return;
+
+  const p = ballState.pos;
+  const v = ballState.vel;
+
+  v.y += G * dt;
+
+  // Wind from hole def
+  if(holeDef && holeDef.wind) {
+    v.x += holeDef.wind.x * dt * 0.3;
+    v.z += holeDef.wind.z * dt * 0.3;
+  }
+
+  p.x += v.x * dt;
+  p.y += v.y * dt;
+  p.z += v.z * dt;
+
+  // Ground collision
+  const groundY = 0.215;
+  if(p.y <= groundY) {
+    p.y = groundY;
+
+    if(Math.abs(v.y) < 0.8 && v.xz_speed() < 0.5) {
+      // Stopped
+      v.set(0,0,0);
+      ballState.inFlight = false;
+      ballState.onGround = true;
+      onBallStopped();
+    } else {
+      // Bounce
+      v.y = -v.y * 0.38;
+      v.x *= 0.72;
+      v.z *= 0.72;
+      ballState.bounces++;
+      if(ballState.bounces > 6) v.multiplyScalar(0.5);
+    }
+  }
+
+  // Friction on ground (rolling)
+  if(p.y <= groundY + 0.05 && Math.abs(v.y) < 1.5) {
+    v.x *= Math.pow(0.88, dt*60);
+    v.z *= Math.pow(0.88, dt*60);
+    if(Math.sqrt(v.x*v.x+v.z*v.z) < 0.1) {
+      v.x = 0; v.z = 0;
+      if(ballState.inFlight) {
+        v.y = 0;
+        ballState.inFlight = false;
+        onBallStopped();
+      }
+    }
+  }
+
+  ball.position.copy(p);
+  ball.rotation.x += v.z * dt * 3;
+  ball.rotation.z -= v.x * dt * 3;
+
+  shadowDisc.position.set(p.x, 0.01, p.z);
+  const h = Math.max(0, p.y - 0.215);
+  shadowDiscMat.opacity = 0.35 * Math.max(0, 1 - h/15);
+  shadowDisc.scale.setScalar(1 + h*0.04);
+
+  // Trail
+  const last = trailPoints[trailPoints.length-1];
+  if(p.distanceTo(last) > 0.5) {
+    trailPoints.push(p.clone());
+    updateTrail();
+  }
+}
+
+// Monkey-patch Vector3 for convenience
+THREE.Vector3.prototype.xz_speed = function() {
+  return Math.sqrt(this.x*this.x + this.z*this.z);
+};
+
+// ─── SHOT COMPLETE ────────────────────────────────────────
+function onBallStopped() {
+  swingPhase = 'result';
+  updateTrail();
+
+  const dist = Math.round(shotStart.distanceTo(ball.position) * 1.09);
+  const distToHole = ball.position.distanceTo(holePos);
+
+  // Check hole-in!
+  if(distToHole < 0.6) {
+    setTimeout(() => showHoleResult(true, dist), 400);
+  } else {
+    setTimeout(() => showShotResult(dist, distToHole), 600);
+  }
+  updateDist();
+}
+
+function showShotResult(dist, distToHole) {
+  const m = Math.round(distToHole * 0.914);
+  const res = document.getElementById('result');
+  let title = 'Nice shot!';
+  if(dist > 150) title = 'Booming drive!';
+  else if(dist < 20) title = 'Short swing...';
+  document.getElementById('res-title').textContent = title;
+  document.getElementById('res-body').textContent = `Shot distance: ${dist} m\n${m} m to the pin`;
+  document.getElementById('res-btn').textContent = 'Next Shot';
+  document.getElementById('res-btn').onclick = resumeFromResult;
+  res.style.display = 'block';
+}
+
+function showHoleResult(holeIn, dist) {
+  const res = document.getElementById('result');
+  const banner = document.getElementById('banner');
+  banner.textContent = strokes === 1 ? '⛳ HOLE IN ONE!!' : '⛳ HOLED OUT!';
+  banner.style.display = 'block';
+  setTimeout(()=>{ banner.style.display='none'; }, 2200);
+  let ratingText = '';
+  const diff = strokes - holeDef.par;
+  if(strokes===1) ratingText='HOLE IN ONE!!';
+  else if(diff <= -2) ratingText='Eagle 🦅';
+  else if(diff === -1) ratingText='Birdie 🐦';
+  else if(diff === 0) ratingText='Par ⛳';
+  else if(diff === 1) ratingText='Bogey';
+  else ratingText=`+${diff}`;
+  document.getElementById('res-title').textContent = 'Holed out!';
+  document.getElementById('res-body').textContent = `Strokes: ${strokes}  ·  ${ratingText}\nShot: ${dist} m`;
+  document.getElementById('res-btn').textContent = 'Next Hole →';
+  document.getElementById('res-btn').onclick = nextHole;
+  res.style.display = 'block';
+}
+
+function resumeFromResult() {
+  document.getElementById('result').style.display='none';
+  swingPhase = 'aim';
+  // Move golfer to ball
+  golferGroup.position.set(ball.position.x, 0, ball.position.z + 0.8);
+  updateUI();
+  positionCamera();
+  updateDist();
+}
+
+function nextHole() {
+  document.getElementById('result').style.display='none';
+  strokes = 0;
+  initHole(currentHoleIndex + 1);
+}
+
+// ─── AIM CONTROLS ─────────────────────────────────────────
+let aimLeft = false, aimRight = false;
+const AIM_SPEED = 1.4; // rad/s
+
+document.getElementById('btn-left').addEventListener('touchstart', e=>{ e.preventDefault(); aimLeft=true; }, {passive:false});
+document.getElementById('btn-left').addEventListener('touchend', ()=>aimLeft=false);
+document.getElementById('btn-right').addEventListener('touchstart', e=>{ e.preventDefault(); aimRight=true; }, {passive:false});
+document.getElementById('btn-right').addEventListener('touchend', ()=>aimRight=false);
+document.getElementById('btn-left').addEventListener('mousedown', ()=>aimLeft=true);
+document.getElementById('btn-left').addEventListener('mouseup', ()=>aimLeft=false);
+document.getElementById('btn-right').addEventListener('mousedown', ()=>aimRight=true);
+document.getElementById('btn-right').addEventListener('mouseup', ()=>aimRight=false);
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if(e.code==='ArrowLeft' || e.code==='KeyA') aimLeft=true;
+  if(e.code==='ArrowRight' || e.code==='KeyD') aimRight=true;
+  if(e.code==='Space' || e.code==='Enter') {
+    e.preventDefault();
+    handleTap();
+  }
+  if(e.code==='KeyT') toggleView();
+});
+document.addEventListener('keyup', e => {
+  if(e.code==='ArrowLeft'||e.code==='KeyA') aimLeft=false;
+  if(e.code==='ArrowRight'||e.code==='KeyD') aimRight=false;
+});
+
+// ─── TAP BUTTON ───────────────────────────────────────────
+document.getElementById('tap-btn').addEventListener('click', handleTap);
+document.getElementById('tap-btn').addEventListener('touchstart', e=>{ e.preventDefault(); handleTap(); }, {passive:false});
+
+function handleTap() {
+  if(swingPhase==='aim') startSwing();
+  else if(swingPhase==='power') confirmPower();
+  else if(swingPhase==='accuracy') confirmAccuracy();
+}
+
+// ─── VIEW TOGGLE ──────────────────────────────────────────
+document.getElementById('view-btn').addEventListener('click', toggleView);
+function toggleView() {
+  useTopView = !useTopView;
+  document.getElementById('view-btn').textContent = useTopView ? '📷 3D' : '🔭 Top';
+  positionCamera();
+}
+
+// ─── UI UPDATE ────────────────────────────────────────────
+function updateUI() {
+  const tapBtn = document.getElementById('tap-btn');
+  const aimBtns = document.getElementById('aim-btns');
+  const aimHint = document.getElementById('aim-hint');
+
+  if(swingPhase === 'aim') {
+    tapBtn.style.display = 'flex';
+    tapBtn.innerHTML = 'TAP<br>TO<br>SWING';
+    aimBtns.style.display = 'flex';
+    aimHint.style.opacity = '1';
+    document.getElementById('swing-ui').style.display = 'none';
+  } else if(swingPhase === 'flight') {
+    tapBtn.style.display = 'none';
+    aimBtns.style.display = 'none';
+    aimHint.style.opacity = '0';
+  }
+}
+
+// ─── MAIN LOOP ────────────────────────────────────────────
+let lastT = 0;
+function loop(t) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((t - lastT) / 1000, 0.05);
+  lastT = t;
+
+  // Aim rotation
+  if(swingPhase === 'aim') {
+    if(aimLeft)  { aimAngle -= AIM_SPEED * dt; golferGroup.rotation.y = aimAngle; arrowDir.setDirection(new THREE.Vector3(Math.sin(aimAngle),0,-Math.cos(aimAngle))); }
+    if(aimRight) { aimAngle += AIM_SPEED * dt; golferGroup.rotation.y = aimAngle; arrowDir.setDirection(new THREE.Vector3(Math.sin(aimAngle),0,-Math.cos(aimAngle))); }
+    if((aimLeft||aimRight) && !useTopView) positionCamera();
+  }
+
+  // Power meter
+  if(swingPhase === 'power') {
+    power += powerDir * POWER_SPEED * dt;
+    if(power >= 100) { power=100; powerDir=-1; }
+    if(power <= 0)   { power=0;   powerDir=1; }
+    document.getElementById('power-fill').style.width = power+'%';
+    document.getElementById('power-val').textContent = Math.round(power)+'%';
+  }
+
+  // Accuracy meter
+  if(swingPhase === 'accuracy') {
+    const spd = ACC_SPEED_BASE + power * 0.4;
+    accCursor += accDir * spd * dt;
+    if(accCursor >= 100) { accCursor=100; accDir=-1; }
+    if(accCursor <= 0)   { accCursor=0;   accDir=1; }
+    document.getElementById('acc-cursor').style.left = accCursor+'%';
+    const score = Math.round((1 - Math.abs(accCursor-50)/50)*100);
+    document.getElementById('acc-val').textContent = score+'%';
+  }
+
+  // Physics
+  updatePhysics(dt);
+
+  // Camera follow during flight
+  if(swingPhase === 'flight' && !useTopView) smoothCamera(dt);
+
+  // Flag wave
+  if(holeObjects.length) {
+    const flag = holeObjects.find(o => o.material && o.material.color && o.material.color.getHex()===0xFF2222);
+    if(flag) flag.position.x = holeDef.hole.x + 0.6 + Math.sin(t*0.003)*0.15;
+  }
+
+  const activeCamera = useTopView ? topCam : camera;
+  renderer.render(scene, activeCamera);
+}
+
+// ─── START ────────────────────────────────────────────────
+resize();
+initHole(0);
+updateUI();
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
