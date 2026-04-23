@@ -25,51 +25,28 @@ const W = 800, H = 450;
 c.width = W;
 c.height = H;
 
-// ─── ASSETS ─────────────────────────
-const ASSETS = {
-  title: "assets/title.png",
-  bg: "assets/bg.png",
-  hydrant: "assets/hydrant.png",
-  dog: "assets/dog_pee.png",
-  warden: "assets/warden_walk.png",
-  win: "assets/win.png",
-  lose: "assets/lose.png"
-};
+// ─── SINGLE IMAGE ───────────────────
+const img = new Image();
+img.src = "https://honsbr.github.io/golfgame/golf8.png";
 
-const img = {};
-let loaded = 0;
-const total = Object.keys(ASSETS).length;
-
-for (let k in ASSETS) {
-  img[k] = new Image();
-  img[k].src = ASSETS[k];
-  img[k].onload = () => {
-    loaded++;
-    if (loaded === total) start();
-  };
-}
-
-// ─── STATE ──────────────────────────
+// ─── STATE ─────────────────────────
 let state = "title";
 let t = 0;
 let piss = 0;
 let wardenX = 820;
-let flash = 0;
 
-// ─── INPUT ──────────────────────────
+// ─── INPUT ─────────────────────────
 c.addEventListener("pointerdown", () => {
-  flash = 0.15;
-
   if (state === "title") {
     reset();
   } else if (state === "play") {
-    piss += 8;
+    piss += 10;
   } else {
     state = "title";
   }
 });
 
-// ─── GAME LOGIC ─────────────────────
+// ─── RESET ─────────────────────────
 function reset() {
   state = "play";
   piss = 0;
@@ -77,59 +54,68 @@ function reset() {
   t = 0;
 }
 
-function update() {
-  t += 0.016;
+// ─── UPDATE ────────────────────────
+function update(dt) {
+  t += dt;
 
   if (state === "play") {
-    wardenX -= 1.2;
+    wardenX -= 140 * dt;
 
     if (wardenX < 520) state = "lose";
     if (piss >= 100) state = "win";
   }
-
-  if (flash > 0) flash -= 0.016;
 }
 
-// ─── DRAW ───────────────────────────
+// ─── DRAW ──────────────────────────
 function draw() {
   g.clearRect(0,0,W,H);
 
-  // TITLE
+  // Always draw base image
+  g.drawImage(img,0,0,W,H);
+
+  // TITLE overlay
   if (state === "title") {
-    g.drawImage(img.title,0,0,W,H);
-
-    const pulse = 0.5 + Math.abs(Math.sin(t * 4)) * 0.5;
-
+    const pulse = 0.5 + Math.abs(Math.sin(t*4))*0.5;
     g.globalAlpha = pulse;
     g.fillStyle = "#fff";
     g.font = "bold 36px Impact";
     g.textAlign = "center";
-    g.fillText("TAP TO START", W/2, H - 40);
+    g.fillText("TAP TO START", W/2, H-40);
     g.globalAlpha = 1;
-
     return;
   }
 
-  // WIN / LOSE
+  // WIN
   if (state === "win") {
-    g.drawImage(img.win,0,0,W,H);
+    g.fillStyle = "rgba(0,0,0,0.6)";
+    g.fillRect(0,0,W,H);
+
+    g.fillStyle = "#0f0";
+    g.font = "bold 50px Impact";
+    g.textAlign = "center";
+    g.fillText("ESCAPED!", W/2, H/2);
+
     drawReplay();
     return;
   }
 
+  // LOSE
   if (state === "lose") {
-    g.drawImage(img.lose,0,0,W,H);
+    g.fillStyle = "rgba(0,0,0,0.6)";
+    g.fillRect(0,0,W,H);
+
+    g.fillStyle = "#f00";
+    g.font = "bold 50px Impact";
+    g.textAlign = "center";
+    g.fillText("CAUGHT!", W/2, H/2);
+
     drawReplay();
     return;
   }
 
-  // GAMEPLAY
-  g.drawImage(img.bg,0,0,W,H);
+  // ── GAMEPLAY OVERLAY ──
 
-  // hydrant
-  g.drawImage(img.hydrant,320,200,80,120);
-
-  // piss stream
+  // fake piss stream
   if (piss > 0) {
     g.strokeStyle = "yellow";
     g.lineWidth = 4;
@@ -139,11 +125,9 @@ function draw() {
     g.stroke();
   }
 
-  // dog
-  g.drawImage(img.dog,150,200,180,180);
-
-  // warden
-  g.drawImage(img.warden,wardenX,200,160,200);
+  // warden indicator (since baked in image)
+  g.fillStyle = "red";
+  g.fillRect(wardenX, 180, 20, 120);
 
   // piss bar
   g.fillStyle = "#000";
@@ -152,7 +136,7 @@ function draw() {
   g.fillRect(20,400,piss*3,20);
 
   // danger bar
-  const d = (wardenX - 520)/300;
+  const d = Math.max(0,(wardenX-520)/300);
   g.fillStyle = d>0.5 ? "#0f0" : d>0.2 ? "#ff0" : "#f00";
   g.fillRect(20,370,300*d,10);
 
@@ -160,36 +144,31 @@ function draw() {
   g.fillStyle = "#fff";
   g.font = "bold 20px Impact";
   g.fillText("TAP FAST!", 600,420);
-
-  // tap flash
-  if (flash > 0) {
-    g.fillStyle = `rgba(255,255,255,${flash})`;
-    g.fillRect(0,0,W,H);
-  }
 }
 
 function drawReplay() {
-  const pulse = 0.5 + Math.abs(Math.sin(t * 4)) * 0.5;
-
+  const pulse = 0.5 + Math.abs(Math.sin(t*4))*0.5;
   g.globalAlpha = pulse;
   g.fillStyle = "#fff";
   g.font = "bold 28px Impact";
-  g.textAlign = "center";
-  g.fillText("TAP TO PLAY AGAIN", W/2, H - 30);
+  g.fillText("TAP TO PLAY AGAIN", W/2, H-30);
   g.globalAlpha = 1;
 }
 
-// ─── LOOP ───────────────────────────
-function loop() {
-  update();
+// ─── LOOP ──────────────────────────
+let last = 0;
+function loop(ts) {
+  const dt = Math.min((ts - last)/1000, 0.05);
+  last = ts;
+
+  update(dt);
   draw();
   requestAnimationFrame(loop);
 }
 
-function start() {
-  loop();
-}
-
+img.onload = () => {
+  requestAnimationFrame(loop);
+};
 </script>
 </body>
 </html>
